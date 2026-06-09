@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from api.db.models import OrganizationModel, UserModel
-from api.schemas.user_configuration import UserConfiguration
+from api.schemas.user_configuration import EffectiveAIModelConfiguration
 from api.tests.integrations._run_pipeline_helpers import USER_CONFIGURATION
 from pipecat.tests import MockLLMService
 
@@ -38,7 +38,7 @@ async def _create_user_and_workflow(
 
     await db_session.update_user_configuration(
         user_id=user.id,
-        configuration=UserConfiguration.model_validate(USER_CONFIGURATION),
+        configuration=EffectiveAIModelConfiguration.model_validate(USER_CONFIGURATION),
     )
 
     workflow = await db_session.create_workflow(
@@ -49,6 +49,38 @@ async def _create_user_and_workflow(
     )
 
     return user, workflow
+
+
+@pytest.mark.asyncio
+async def test_text_chat_session_creation_requires_selected_organization():
+    from httpx import ASGITransport, AsyncClient
+
+    from api.app import app
+    from api.services.auth.depends import get_user
+
+    user = UserModel(provider_id="textchat-user-no-selected-org")
+
+    async def mock_get_user():
+        return user
+
+    original_override = app.dependency_overrides.get(get_user)
+    app.dependency_overrides[get_user] = mock_get_user
+
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/api/v1/workflow/123/text-chat/sessions", json={}
+            )
+    finally:
+        if original_override:
+            app.dependency_overrides[get_user] = original_override
+        else:
+            app.dependency_overrides.pop(get_user, None)
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "No organization selected"}
 
 
 @pytest.mark.asyncio
@@ -1009,7 +1041,7 @@ async def test_text_chat_session_creation_requires_selected_org_scope(
 
     await db_session.update_user_configuration(
         user_id=user.id,
-        configuration=UserConfiguration.model_validate(USER_CONFIGURATION),
+        configuration=EffectiveAIModelConfiguration.model_validate(USER_CONFIGURATION),
     )
 
     workflow = await db_session.create_workflow(

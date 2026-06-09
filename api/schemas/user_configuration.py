@@ -11,7 +11,7 @@ from api.services.configuration.registry import (
 )
 
 
-class UserConfiguration(BaseModel):
+class EffectiveAIModelConfiguration(BaseModel):
     llm: LLMConfig | None = None
     stt: STTConfig | None = None
     tts: TTSConfig | None = None

@@ -284,3 +284,46 @@ async def rendexia_turn(
         state=_get_state_value(workflow_run.state) if workflow_run else "completed",
         suggested_action=_extract_suggested_action(result_session),
     )
+
+
+# ---- Org provisioning -------------------------------------------------------
+
+
+class RendexiaOrgProvisionRequest(BaseModel):
+    tenant_id: str  # Rendexia tenant UUID
+    tenant_name: str
+    provider_id: str  # unique external ID = tenant_id
+    plan: str = "rendexia"  # plan slug
+
+
+class RendexiaOrgProvisionResponse(BaseModel):
+    organization_id: int
+    provider_id: str
+    already_existed: bool
+
+
+@router.post(
+    "/organizations",
+    response_model=RendexiaOrgProvisionResponse,
+    summary="Rendexia — idempotent org provisioning",
+    description=(
+        "Create or return the Dograh organization for a Rendexia tenant. "
+        "Uses provider_id = tenant_id for deduplication. Safe to call multiple times."
+    ),
+)
+async def provision_rendexia_org(
+    request: RendexiaOrgProvisionRequest,
+) -> RendexiaOrgProvisionResponse:
+    """
+    Idempotent: create or return the Dograh organization for a Rendexia tenant.
+    Uses provider_id = tenant_id for deduplication.
+    """
+    organization, was_created = await db_client.get_or_create_organization_by_provider_id(
+        org_provider_id=request.provider_id,
+        user_id=0,  # system provisioning — no owning user
+    )
+    return RendexiaOrgProvisionResponse(
+        organization_id=organization.id,
+        provider_id=organization.provider_id,
+        already_existed=not was_created,
+    )

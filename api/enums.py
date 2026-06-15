@@ -89,6 +89,7 @@ class OrganizationConfigurationKey(Enum):
     LANGFUSE_CREDENTIALS = (
         "LANGFUSE_CREDENTIALS"  # Org-level Langfuse tracing credentials
     )
+    RENDEXIA_AGENT_CONFIG = "RENDEXIA_AGENT_CONFIG"  # Per-tenant agent persona config from Rendexia
 
 
 class WorkflowStatus(Enum):

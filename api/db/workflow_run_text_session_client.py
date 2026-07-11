@@ -103,7 +103,7 @@ class WorkflowRunTextSessionClient(BaseDBClient):
                 .join(WorkflowRunModel.workflow)
                 .where(WorkflowModel.workflow_uuid == workflow_uuid)
                 .where(
-                    WorkflowRunModel.annotations["rendexia_conversation_id"].astext
+                    WorkflowRunModel.annotations["rendexia_conversation_id"].as_string()
                     == conversation_id
                 )
                 .order_by(WorkflowRunTextSessionModel.created_at.desc())

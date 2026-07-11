@@ -26,6 +26,7 @@ from pydantic import BaseModel
 
 from api.db import db_client
 from api.enums import WorkflowRunMode
+from api.services.quota_service import authorize_workflow_run_start
 from api.services.workflow.text_chat_session_service import (
     TextChatPendingTurnLostError,
     TextChatSessionExecutionError,
@@ -177,6 +178,20 @@ async def rendexia_turn(
             )
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+        quota_result = await authorize_workflow_run_start(
+            workflow_id=workflow.id,
+            workflow_run_id=workflow_run.id,
+        )
+        if not quota_result.has_quota:
+            raise HTTPException(
+                status_code=402,
+                detail=quota_result.error_message or "Could not authorize workflow run",
+            )
+
+        workflow_run = await db_client.get_workflow_run_by_id(workflow_run.id)
+        if workflow_run is None:
+            raise HTTPException(status_code=500, detail="Workflow run not found after authorization")
 
         set_current_run_id(workflow_run.id)
 

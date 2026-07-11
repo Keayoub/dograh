@@ -417,7 +417,7 @@ async def execute_text_chat_pending_turn(
     if user_config.llm is None:
         raise ValueError("Text chat requires an LLM configuration")
 
-    llm = create_llm_service(user_config)
+    llm = create_llm_service(user_config, correlation_id=str(workflow_run_id))
     inference_llm = llm
 
     runtime_configuration = {

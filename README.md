@@ -132,11 +132,43 @@ For detailed deployment instructions including remote server setup with HTTPS, s
 
 Visit [https://www.dograh.com](https://www.dograh.com/) for our managed cloud offering.
 
-## 📚Documentation
+## 🧭 Fork workflow for Rendexia integration
 
-You can go to [https://docs.dograh.com](https://docs.dograh.com/) for our documentation.
+This fork is used as the working tree for Rendexia integration work.
 
-## 📦 SDKs
+### Branch policy
+
+- Keep day-to-day Rendexia integration work on `feat/rendexia-dograh-adapter`.
+- Do **not** use the fork `main` branch for active development.
+- Treat `main` as the mirror of upstream unless an explicit sync is requested.
+
+### Syncing from upstream
+
+When you are asked to sync the fork with the latest upstream Dograh changes, do it manually:
+
+```bash
+git fetch upstream
+git checkout feat/rendexia-dograh-adapter
+git merge upstream/main
+```
+
+If you need to inspect what will come in first, review the diff before merging:
+
+```bash
+git fetch upstream
+git log --oneline --decorate --graph feat/rendexia-dograh-adapter..upstream/main
+git diff feat/rendexia-dograh-adapter..upstream/main
+```
+
+### After syncing
+
+- Re-run the relevant build/test checks.
+- Push the branch back to the fork:
+
+```bash
+git push origin feat/rendexia-dograh-adapter
+```
+
 
 - **Python SDK** — [pypi.org/project/dograh-sdk](https://pypi.org/project/dograh-sdk/)
 - **Node SDK** — [npmjs.com/package/@dograh/sdk](https://www.npmjs.com/package/@dograh/sdk)

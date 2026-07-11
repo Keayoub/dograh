@@ -573,6 +573,7 @@ def create_llm_service_from_provider(
     location: str | None = None,
     credentials: str | None = None,
     temperature: float | None = None,
+    correlation_id: str | None = None,
 ):
     """Create an LLM service from explicit provider/model/api_key.
 
@@ -637,6 +638,7 @@ def create_llm_service_from_provider(
         return DograhLLMService(
             base_url=f"{MPS_API_URL}/api/v1/llm",
             api_key=api_key,
+            correlation_id=correlation_id,
             settings=OpenAILLMSettings(model=model),
         )
     elif provider == ServiceProviders.AWS_BEDROCK.value:
@@ -851,7 +853,7 @@ def create_realtime_llm_service(user_config, audio_config: "AudioConfig"):
         )
 
 
-def create_llm_service(user_config):
+def create_llm_service(user_config, *, correlation_id: str | None = None):
     """Create and return appropriate LLM service based on user configuration."""
     provider = user_config.llm.provider
     model = user_config.llm.model
@@ -880,4 +882,10 @@ def create_llm_service(user_config):
     elif provider == ServiceProviders.SARVAM.value:
         kwargs["temperature"] = user_config.llm.temperature
 
-    return create_llm_service_from_provider(provider, model, api_key, **kwargs)
+    return create_llm_service_from_provider(
+        provider,
+        model,
+        api_key,
+        correlation_id=correlation_id,
+        **kwargs,
+    )

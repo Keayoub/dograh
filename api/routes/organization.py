@@ -961,3 +961,70 @@ async def get_campaign_defaults(user: UserModel = Depends(get_user)):
         default_retry_config=RetryConfigResponse(**DEFAULT_CAMPAIGN_RETRY_CONFIG),
         last_campaign_settings=last_campaign_settings,
     )
+
+
+# ---------------------------------------------------------------------------
+# Rendexia Agent Configuration
+# ---------------------------------------------------------------------------
+
+from api.schemas.rendexia_agent_config import RendexiaAgentConfig, RendexiaAgentConfigResponse  # noqa: E402
+
+
+@router.get("/rendexia-agent-config", response_model=RendexiaAgentConfigResponse)
+async def get_rendexia_agent_config(user: UserModel = Depends(get_user)):
+    """Get the Rendexia agent persona configuration for this organization."""
+    if not user.selected_organization_id:
+        raise HTTPException(status_code=400, detail="No organization selected")
+
+    config = await db_client.get_configuration(
+        user.selected_organization_id,
+        OrganizationConfigurationKey.RENDEXIA_AGENT_CONFIG.value,
+    )
+
+    if not config or not config.value:
+        return RendexiaAgentConfigResponse(
+            config=RendexiaAgentConfig(),
+            organization_id=user.selected_organization_id,
+            configured=False,
+        )
+
+    return RendexiaAgentConfigResponse(
+        config=RendexiaAgentConfig.model_validate(config.value),
+        organization_id=user.selected_organization_id,
+        configured=True,
+    )
+
+
+@router.post("/rendexia-agent-config", response_model=RendexiaAgentConfigResponse)
+async def save_rendexia_agent_config(
+    request: RendexiaAgentConfig,
+    user: UserModel = Depends(get_user),
+):
+    """Save (upsert) the Rendexia agent persona configuration for this organization."""
+    if not user.selected_organization_id:
+        raise HTTPException(status_code=400, detail="No organization selected")
+
+    await db_client.upsert_configuration(
+        user.selected_organization_id,
+        OrganizationConfigurationKey.RENDEXIA_AGENT_CONFIG.value,
+        request.model_dump(),
+    )
+
+    return RendexiaAgentConfigResponse(
+        config=request,
+        organization_id=user.selected_organization_id,
+        configured=True,
+    )
+
+
+@router.delete("/rendexia-agent-config")
+async def delete_rendexia_agent_config(user: UserModel = Depends(get_user)):
+    """Reset the Rendexia agent configuration to defaults."""
+    if not user.selected_organization_id:
+        raise HTTPException(status_code=400, detail="No organization selected")
+
+    await db_client.delete_configuration(
+        user.selected_organization_id,
+        OrganizationConfigurationKey.RENDEXIA_AGENT_CONFIG.value,
+    )
+    return {"message": "Rendexia agent configuration reset to defaults."}

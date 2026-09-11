@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
-from loguru import logger
 
+from api.constants import ENABLE_SIGNUP
 from api.db import db_client
 from api.db.models import UserModel
 from api.enums import PostHogEvent
 from api.schemas.auth import AuthResponse, LoginRequest, SignupRequest, UserResponse
-from api.services.auth.depends import create_user_configuration_with_mps_key, get_user
+from api.services.auth.depends import get_user, require_local_auth
+from api.services.organization_bootstrap import ensure_organization_bootstrapped
 from api.services.posthog_client import capture_event
 from api.utils.auth import create_jwt_token, hash_password, verify_password
 
@@ -15,8 +16,15 @@ router = APIRouter(
 )
 
 
-@router.post("/signup", response_model=AuthResponse)
+@router.post(
+    "/signup",
+    response_model=AuthResponse,
+    dependencies=[Depends(require_local_auth)],
+)
 async def signup(request: SignupRequest):
+    if not ENABLE_SIGNUP:
+        raise HTTPException(status_code=403, detail="Signup is disabled")
+
     # Check if email is already taken
     existing_user = await db_client.get_user_by_email(request.email)
     if existing_user:
@@ -40,17 +48,15 @@ async def signup(request: SignupRequest):
     await db_client.add_user_to_organization(user.id, organization.id)
     await db_client.update_user_selected_organization(user.id, organization.id)
 
-    # Create default service configuration
-    try:
-        mps_config = await create_user_configuration_with_mps_key(
-            user.id, organization.id, user.provider_id
-        )
-        if mps_config:
-            await db_client.update_user_configuration(user.id, mps_config)
-    except Exception:
-        logger.warning(
-            "Failed to create default configuration for OSS user", exc_info=True
-        )
+    # Create default service configuration. This never raises, so signup still
+    # succeeds if MPS is down; `_handle_oss_auth` re-enters bootstrap on the
+    # user's subsequent authenticated requests, so a failure here is recovered
+    # rather than permanent. Doing it here anyway means the common case has a
+    # model configuration and SIP connectivity by the time the UI first loads.
+    await ensure_organization_bootstrapped(
+        organization.id,
+        created_by=user.provider_id,
+    )
 
     # Create JWT token
     token = create_jwt_token(user.id, request.email)
@@ -76,7 +82,11 @@ async def signup(request: SignupRequest):
     )
 
 
-@router.post("/login", response_model=AuthResponse)
+@router.post(
+    "/login",
+    response_model=AuthResponse,
+    dependencies=[Depends(require_local_auth)],
+)
 async def login(request: LoginRequest):
     # Look up user by email
     user = await db_client.get_user_by_email(request.email)

@@ -30,10 +30,29 @@ The following variables are available in your `payload_template` using double-br
 | `call_time` | string | ISO-8601 UTC timestamp of when the run was created |
 | `initial_context` | object | Context passed when the call was initiated |
 | `gathered_context` | object | Data extracted during the call by agent nodes |
+| `gathered_context.call_status` | string | Observed reason the call ended |
+| `gathered_context.call_disposition` | string | Raw final outcome before organization mapping |
+| `gathered_context.mapped_call_disposition` | string | Final outcome after organization mapping |
 | `cost_info` | object | Call cost breakdown |
+| `cost_info.call_duration_seconds` | number | Call duration in seconds |
 | `annotations` | object | QA analysis results (if a `qa` node is configured) |
 | `recording_url` | string \| null | Public download URL for the call recording |
 | `transcript_url` | string \| null | Public download URL for the call transcript |
+
+### Call disposition
+
+Use `{{gathered_context.call_disposition}}` for the raw workflow outcome or
+`{{gathered_context.mapped_call_disposition}}` for your organization's mapped
+code. `{{gathered_context.call_status}}` remains the observed reason the call
+ended. See [Call Dispositions](./call-dispositions) to configure custom business
+outcomes for each workflow and understand the fallback behavior.
+
+<Note>
+Dograh always includes a top-level `call_disposition` field in the delivered
+payload. If your template doesn't set one, it is added automatically from the
+raw `gathered_context.call_disposition`; if your template sets it explicitly,
+your value is kept.
+</Note>
 
 ### Example payload template
 
@@ -42,6 +61,10 @@ The following variables are available in your `payload_template` using double-br
   "run_id": "{{workflow_run_id}}",
   "customer": "{{initial_context.customer_name}}",
   "outcome": "{{gathered_context.resolution}}",
+  "call_status": "{{gathered_context.call_status}}",
+  "disposition": "{{gathered_context.call_disposition}}",
+  "mapped_disposition": "{{gathered_context.mapped_call_disposition}}",
+  "duration": "{{cost_info.call_duration_seconds}}",
   "recording": "{{recording_url}}"
 }
 ```

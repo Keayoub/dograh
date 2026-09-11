@@ -2,14 +2,14 @@
 TDD tests for resolve_effective_config().
 
 This function deep-merges workflow-level model_overrides onto the global
-UserConfiguration. Fields not overridden inherit from global.
+EffectiveAIModelConfiguration. Fields not overridden inherit from global.
 
 Module under test: api.services.configuration.resolve
 """
 
 import pytest
 
-from api.schemas.user_configuration import UserConfiguration
+from api.schemas.ai_model_configuration import EffectiveAIModelConfiguration
 from api.services.configuration.masking import (
     contains_masked_key,
     mask_workflow_configurations,
@@ -35,9 +35,9 @@ from api.services.configuration.resolve import (
 
 
 @pytest.fixture
-def global_config() -> UserConfiguration:
+def global_config() -> EffectiveAIModelConfiguration:
     """A realistic global user configuration."""
-    return UserConfiguration(
+    return EffectiveAIModelConfiguration(
         llm=OpenAILLMService(
             provider="openai", api_key="sk-global-llm", model="gpt-4.1"
         ),
@@ -59,9 +59,9 @@ def global_config() -> UserConfiguration:
 
 
 @pytest.fixture
-def global_config_realtime() -> UserConfiguration:
+def global_config_realtime() -> EffectiveAIModelConfiguration:
     """Global config with realtime enabled."""
-    return UserConfiguration(
+    return EffectiveAIModelConfiguration(
         llm=OpenAILLMService(
             provider="openai", api_key="sk-global-llm", model="gpt-4.1"
         ),
@@ -181,7 +181,7 @@ class TestProviderChange:
             {
                 "llm": {
                     "provider": "google_vertex",
-                    "model": "gemini-2.5-flash",
+                    "model": "gemini-3.5-flash",
                     "project_id": "demo-project",
                     "location": "us-east4",
                     "credentials": '{"type":"service_account"}',
@@ -254,6 +254,13 @@ class TestRealtimeOverride:
         assert result.realtime.provider == "google_realtime"  # inherited
         assert result.realtime.api_key == "goog-global-rt"  # inherited
 
+    def test_override_realtime_temperature(self, global_config_realtime):
+        result = resolve_effective_config(
+            global_config_realtime, {"realtime": {"temperature": 0.4}}
+        )
+        assert result.realtime.temperature == 0.4
+        assert result.realtime.provider == "google_realtime"  # inherited
+
     def test_switch_realtime_provider_to_grok(self, global_config_realtime):
         result = resolve_effective_config(
             global_config_realtime,
@@ -302,7 +309,7 @@ class TestRealtimeOverride:
 class TestOverrideOnNullGlobal:
     def test_override_stt_when_global_is_none(self):
         """When global has no STT config, override creates one from scratch."""
-        config = UserConfiguration(
+        config = EffectiveAIModelConfiguration(
             llm=OpenAILLMService(provider="openai", api_key="sk-key", model="gpt-4.1"),
             stt=None,
             tts=None,
@@ -325,7 +332,7 @@ class TestOverrideOnNullGlobal:
 
     def test_override_realtime_when_global_is_none(self):
         """Realtime section can be created from override even if global has none."""
-        config = UserConfiguration(
+        config = EffectiveAIModelConfiguration(
             llm=OpenAILLMService(provider="openai", api_key="sk-key", model="gpt-4.1"),
             is_realtime=False,
             realtime=None,

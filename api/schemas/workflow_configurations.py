@@ -1,0 +1,223 @@
+from typing import Annotated, Literal
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
+
+from api.constants import (
+    MAX_TEXT_CHAT_INACTIVITY_TIMEOUT_SECONDS,
+    MIN_TEXT_CHAT_INACTIVITY_TIMEOUT_SECONDS,
+    TEXT_CHAT_INACTIVITY_TIMEOUT_SECONDS,
+)
+
+DEFAULT_MAX_CALL_DURATION_SECONDS = 300
+# Hard ceiling on configurable call duration. Must stay <= the concurrency
+# rate limiter's stale_call_timeout (20 min): a call running past that has
+# its slot purged as stale and the org concurrency limit under-counts.
+MAX_CALL_DURATION_SECONDS = 1200
+DEFAULT_MAX_USER_IDLE_TIMEOUT_SECONDS = 10.0
+DEFAULT_SMART_TURN_STOP_SECS = 2.0
+DEFAULT_TURN_START_STRATEGY = "default"
+DEFAULT_TURN_START_MIN_WORDS = 3
+DEFAULT_PROVISIONAL_VAD_PAUSE_SECS = 1.5
+DEFAULT_TURN_STOP_STRATEGY = "transcription"
+DEFAULT_CONTEXT_COMPACTION_ENABLED = False
+MAX_CALL_DISPOSITIONS = 50
+MAX_CALL_DISPOSITION_CODE_LENGTH = 64
+MAX_CALL_DISPOSITION_DESCRIPTION_LENGTH = 1_000
+MAX_CALL_DISPOSITION_DESCRIPTIONS_TOTAL_LENGTH = 4_000
+
+
+class CallDispositionOption(BaseModel):
+    """One business outcome the terminal classifier may select."""
+
+    code: str = Field(
+        min_length=1,
+        max_length=MAX_CALL_DISPOSITION_CODE_LENGTH,
+        pattern=r"^[A-Za-z][A-Za-z0-9_-]*$",
+        description="Stable code recorded when this outcome is selected.",
+    )
+    description: str = Field(
+        min_length=1,
+        max_length=MAX_CALL_DISPOSITION_DESCRIPTION_LENGTH,
+        description="Business criteria for selecting this disposition.",
+    )
+
+    @field_validator("code", "description", mode="before")
+    @classmethod
+    def strip_text(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+DEFAULT_CALL_DISPOSITION_OPTIONS: tuple[CallDispositionOption, ...] = (
+    CallDispositionOption(
+        code="qualified",
+        description="The call achieved the workflow's primary goal.",
+    ),
+    CallDispositionOption(
+        code="not_interested",
+        description="The person clearly declined the offer or said they are not interested.",
+    ),
+    CallDispositionOption(
+        code="wrong_number",
+        description="The call reached the wrong person or an incorrect phone number.",
+    ),
+    CallDispositionOption(
+        code="voicemail_detected",
+        description="The call reached voicemail or an answering machine instead of a person.",
+    ),
+    CallDispositionOption(
+        code="do_not_call",
+        description="The person explicitly asked not to be contacted again.",
+    ),
+    CallDispositionOption(
+        code="callback_requested",
+        description="The person asked to be contacted again at a later time.",
+    ),
+)
+
+
+def get_default_call_disposition_options() -> list[CallDispositionOption]:
+    """Return fresh copies of the built-in terminal outcome catalog."""
+    return [option.model_copy(deep=True) for option in DEFAULT_CALL_DISPOSITION_OPTIONS]
+
+
+class ExternalPBXFieldMapping(BaseModel):
+    """Map one gathered-context value to a provider-native field."""
+
+    context_path: str = Field(min_length=1, max_length=255)
+    destination_field: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
+
+    @field_validator("context_path", mode="before")
+    @classmethod
+    def strip_context_path(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("destination_field", mode="before")
+    @classmethod
+    def strip_destination_field(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+# Extra lead fields to capture from the inbound INVITE, named without the
+# provider's header prefix (``first_name`` -> ``X-VICIDIAL-first_name``). Each
+# entry costs one ARI round trip during call setup, so the set is configured
+# explicitly per workflow rather than enumerated off the INVITE.
+MAX_EXTERNAL_PBX_LEAD_HEADERS = 50
+
+ExternalPBXLeadHeader = Annotated[
+    str, StringConstraints(pattern=r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
+]
+
+
+class AmbientNoiseConfigurationDefaults(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = False
+    volume: float = 0.3
+
+
+class WorkflowConfigurationDefaults(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _treat_null_as_unset(cls, data):
+        # Stored configs (and older clients) carry explicit JSON nulls for
+        # keys the user never configured; dropping them lets the field
+        # defaults apply instead of failing validation.
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if v is not None}
+        return data
+
+    ambient_noise_configuration: AmbientNoiseConfigurationDefaults = Field(
+        default_factory=AmbientNoiseConfigurationDefaults
+    )
+    max_call_duration: int = Field(
+        default=DEFAULT_MAX_CALL_DURATION_SECONDS,
+        gt=0,
+        le=MAX_CALL_DURATION_SECONDS,
+    )
+    max_user_idle_timeout: float = DEFAULT_MAX_USER_IDLE_TIMEOUT_SECONDS
+    smart_turn_stop_secs: float = DEFAULT_SMART_TURN_STOP_SECS
+    turn_start_strategy: Literal["default", "min_words", "provisional_vad"] = (
+        DEFAULT_TURN_START_STRATEGY
+    )
+    turn_start_min_words: int = DEFAULT_TURN_START_MIN_WORDS
+    provisional_vad_pause_secs: float = DEFAULT_PROVISIONAL_VAD_PAUSE_SECS
+    turn_stop_strategy: Literal["transcription", "turn_analyzer"] = (
+        DEFAULT_TURN_STOP_STRATEGY
+    )
+    dictionary: str = ""
+    context_compaction_enabled: bool = DEFAULT_CONTEXT_COMPACTION_ENABLED
+    call_dispositions: list[CallDispositionOption] = Field(
+        default_factory=list,
+        max_length=MAX_CALL_DISPOSITIONS,
+        description=(
+            "Allowed business outcomes for terminal call classification. Each "
+            "entry defines the exact stored code and the criteria for selecting it."
+        ),
+    )
+    text_chat_inactivity_timeout_seconds: int = Field(
+        default=TEXT_CHAT_INACTIVITY_TIMEOUT_SECONDS,
+        ge=MIN_TEXT_CHAT_INACTIVITY_TIMEOUT_SECONDS,
+        le=MAX_TEXT_CHAT_INACTIVITY_TIMEOUT_SECONDS,
+    )
+    external_pbx_field_mappings: list[ExternalPBXFieldMapping] = Field(
+        default_factory=list,
+        max_length=100,
+    )
+    external_pbx_lead_headers: list[ExternalPBXLeadHeader] = Field(
+        default_factory=list,
+        max_length=MAX_EXTERNAL_PBX_LEAD_HEADERS,
+    )
+
+    @field_validator("call_dispositions")
+    @classmethod
+    def validate_call_dispositions(
+        cls, value: list[CallDispositionOption]
+    ) -> list[CallDispositionOption]:
+        seen: set[str] = set()
+        for option in value:
+            normalized_code = option.code.casefold()
+            if normalized_code in seen:
+                raise ValueError("call disposition codes must be unique")
+            seen.add(normalized_code)
+
+        total_description_length = sum(len(option.description) for option in value)
+        if total_description_length > MAX_CALL_DISPOSITION_DESCRIPTIONS_TOTAL_LENGTH:
+            raise ValueError(
+                "call disposition descriptions must total at most "
+                f"{MAX_CALL_DISPOSITION_DESCRIPTIONS_TOTAL_LENGTH} characters"
+            )
+        return value
+
+    @field_validator("external_pbx_lead_headers", mode="before")
+    @classmethod
+    def strip_lead_headers(cls, value: object) -> object:
+        """Trim and de-duplicate while preserving the configured order."""
+        if not isinstance(value, list):
+            return value
+        cleaned: list[str] = []
+        for item in value:
+            name = item.strip() if isinstance(item, str) else item
+            if name and name not in cleaned:
+                cleaned.append(name)
+        return cleaned
+
+
+class TextChatInactivityTimeoutConstraints(BaseModel):
+    """Backend-owned timeout metadata consumed by generated API clients."""
+
+    default_seconds: int = TEXT_CHAT_INACTIVITY_TIMEOUT_SECONDS
+    minimum_seconds: int = MIN_TEXT_CHAT_INACTIVITY_TIMEOUT_SECONDS
+    maximum_seconds: int = MAX_TEXT_CHAT_INACTIVITY_TIMEOUT_SECONDS
+
+
+def get_default_workflow_configurations() -> WorkflowConfigurationDefaults:
+    return WorkflowConfigurationDefaults()

@@ -9,14 +9,17 @@ from pydantic import BaseModel, Field
 from api.db import db_client
 from api.db.models import UserModel, WorkflowRunTextSessionModel
 from api.enums import WorkflowRunMode
-from api.services.auth.depends import get_user
-from api.services.quota_service import check_dograh_quota
+from api.services.auth.depends import get_user_with_selected_organization
+from api.services.quota_service import authorize_workflow_run_start
+from api.services.workflow.initial_context import merge_external_initial_context
+from api.services.workflow.run_creation import prepare_workflow_run_inputs
 from api.services.workflow.text_chat_session_service import (
     TextChatPendingTurnLostError,
     TextChatSessionExecutionError,
     TextChatSessionRevisionConflictError,
     TextChatTurnNotFoundError,
     append_text_chat_user_message,
+    complete_text_chat_session,
     default_text_chat_checkpoint,
     default_text_chat_session_data,
     execute_pending_text_chat_turn,
@@ -42,6 +45,10 @@ class AppendTextChatMessageRequest(BaseModel):
 
 class RewindTextChatSessionRequest(BaseModel):
     cursor_turn_id: str | None = None
+    expected_revision: int | None = None
+
+
+class EndTextChatSessionRequest(BaseModel):
     expected_revision: int | None = None
 
 
@@ -96,14 +103,17 @@ def _revision_conflict_detail(e: Any) -> dict[str, Any]:
     }
 
 
-def _require_selected_organization_id(user: UserModel) -> int:
-    if user.selected_organization_id is None:
-        raise HTTPException(status_code=403, detail="Organization context is required")
-    return user.selected_organization_id
-
-
-async def _ensure_text_chat_quota(user: UserModel, workflow_id: int) -> None:
-    quota_result = await check_dograh_quota(user, workflow_id=workflow_id)
+async def _ensure_text_chat_quota(
+    user: UserModel,
+    workflow_id: int,
+    workflow_run_id: int,
+) -> None:
+    quota_result = await authorize_workflow_run_start(
+        workflow_id=workflow_id,
+        organization_id=user.selected_organization_id,
+        workflow_run_id=workflow_run_id,
+        actor_user=user,
+    )
     if not quota_result.has_quota:
         raise HTTPException(status_code=402, detail=quota_result.error_message)
 
@@ -114,9 +124,8 @@ async def _load_text_session_or_404(
     user: UserModel,
 ) -> WorkflowRunTextSessionModel:
     set_current_run_id(run_id)
-    organization_id = _require_selected_organization_id(user)
     text_session = await db_client.get_workflow_run_text_session(
-        run_id, organization_id=organization_id
+        run_id, organization_id=user.selected_organization_id
     )
     if not text_session or not text_session.workflow_run:
         raise HTTPException(status_code=404, detail="Text chat session not found")
@@ -158,26 +167,36 @@ async def _execute_pending_turn_response(
 async def create_text_chat_session(
     workflow_id: int,
     request: CreateTextChatSessionRequest,
-    user: UserModel = Depends(get_user),
+    user: UserModel = Depends(get_user_with_selected_organization),
 ) -> WorkflowRunTextSessionResponse:
-    organization_id = _require_selected_organization_id(user)
-    await _ensure_text_chat_quota(user, workflow_id)
-
     session_name = request.name or f"WR-TEXT-{uuid4().hex[:6].upper()}"
     try:
+        workflow = await db_client.get_workflow(
+            workflow_id, organization_id=user.selected_organization_id
+        )
+        if not workflow:
+            raise ValueError(f"Workflow with ID {workflow_id} not found")
+        run_inputs = await prepare_workflow_run_inputs(
+            db_client,
+            workflow,
+            initial_context=merge_external_initial_context({}, request.initial_context),
+            use_draft=True,
+            include_template_context=True,
+        )
         workflow_run = await db_client.create_workflow_run(
             name=session_name,
             workflow_id=workflow_id,
             mode=WorkflowRunMode.TEXTCHAT.value,
             user_id=user.id,
-            initial_context=request.initial_context,
-            use_draft=True,
-            organization_id=organization_id,
+            initial_context=run_inputs.initial_context,
+            organization_id=user.selected_organization_id,
+            definition_id=run_inputs.definition_id,
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
     set_current_run_id(workflow_run.id)
+    await _ensure_text_chat_quota(user, workflow_id, workflow_run.id)
 
     annotations = {
         "tester": {
@@ -220,7 +239,7 @@ async def create_text_chat_session(
 async def get_text_chat_session(
     workflow_id: int,
     run_id: int,
-    user: UserModel = Depends(get_user),
+    user: UserModel = Depends(get_user_with_selected_organization),
 ) -> WorkflowRunTextSessionResponse:
     text_session = await _load_text_session_or_404(workflow_id, run_id, user)
     return _build_response(text_session)
@@ -234,10 +253,16 @@ async def append_text_chat_message(
     workflow_id: int,
     run_id: int,
     request: AppendTextChatMessageRequest,
-    user: UserModel = Depends(get_user),
+    user: UserModel = Depends(get_user_with_selected_organization),
 ) -> WorkflowRunTextSessionResponse:
     text_session = await _load_text_session_or_404(workflow_id, run_id, user)
-    await _ensure_text_chat_quota(user, workflow_id)
+    if (
+        text_session.workflow_run.is_completed
+        or normalize_text_chat_session_data(text_session.session_data)["status"]
+        == "completed"
+    ):
+        raise HTTPException(status_code=400, detail="Text chat session has ended")
+    await _ensure_text_chat_quota(user, workflow_id, run_id)
 
     try:
         text_session = await append_text_chat_user_message(
@@ -257,6 +282,29 @@ async def append_text_chat_message(
 
 
 @router.post(
+    "/{workflow_id}/text-chat/sessions/{run_id}/end",
+    response_model=WorkflowRunTextSessionResponse,
+)
+async def end_text_chat_session(
+    workflow_id: int,
+    run_id: int,
+    request: EndTextChatSessionRequest,
+    user: UserModel = Depends(get_user_with_selected_organization),
+) -> WorkflowRunTextSessionResponse:
+    text_session = await _load_text_session_or_404(workflow_id, run_id, user)
+    try:
+        text_session = await complete_text_chat_session(
+            run_id=run_id,
+            text_session=text_session,
+            expected_revision=request.expected_revision,
+        )
+    except TextChatSessionRevisionConflictError as e:
+        raise HTTPException(status_code=409, detail=_revision_conflict_detail(e))
+
+    return _build_response(text_session)
+
+
+@router.post(
     "/{workflow_id}/text-chat/sessions/{run_id}/rewind",
     response_model=WorkflowRunTextSessionResponse,
 )
@@ -264,9 +312,15 @@ async def rewind_text_chat_session(
     workflow_id: int,
     run_id: int,
     request: RewindTextChatSessionRequest,
-    user: UserModel = Depends(get_user),
+    user: UserModel = Depends(get_user_with_selected_organization),
 ) -> WorkflowRunTextSessionResponse:
     text_session = await _load_text_session_or_404(workflow_id, run_id, user)
+    if (
+        text_session.workflow_run.is_completed
+        or normalize_text_chat_session_data(text_session.session_data)["status"]
+        == "completed"
+    ):
+        raise HTTPException(status_code=400, detail="Text chat session has ended")
     try:
         text_session = await rewind_text_chat_session_state(
             run_id=run_id,

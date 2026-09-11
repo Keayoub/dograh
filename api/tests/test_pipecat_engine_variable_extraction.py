@@ -11,12 +11,11 @@ The key behavior being tested:
 5. Variable extraction should NOT be triggered for AGENT node
 """
 
-import asyncio
+from types import SimpleNamespace
 from typing import Any, Dict, List
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from pipecat.frames.frames import LLMContextFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
 from pipecat.processors.aggregators.llm_context import LLMContext
@@ -27,12 +26,12 @@ from pipecat.processors.aggregators.llm_response_universal import (
 from pipecat.tests.mock_transport import MockTransport
 from pipecat.transports.base_transport import TransportParams
 
-from api.services.pipecat.worker_runner import run_pipeline_worker
 from api.services.workflow.pipecat_engine import PipecatEngine
 from api.services.workflow.pipecat_engine_variable_extractor import (
     VariableExtractionManager,
 )
 from api.services.workflow.workflow_graph import WorkflowGraph
+from api.tests.pipecat_test_utils import run_engine_test_pipeline
 from pipecat.tests import MockLLMService, MockTTSService
 
 
@@ -90,6 +89,7 @@ class TestVariableExtractionDuringTransitions:
                 audio_out_enabled=True,
                 audio_in_sample_rate=16000,
                 audio_out_sample_rate=16000,
+                audio_out_end_silence_secs=0,
             ),
         )
 
@@ -117,7 +117,10 @@ class TestVariableExtractionDuringTransitions:
         # Patch _perform_variable_extraction_if_needed to track calls
         original_perform_extraction = engine._perform_variable_extraction_if_needed
 
-        async def tracked_perform_extraction(node, run_in_background=True):
+        async def tracked_perform_extraction(
+            node,
+            run_in_background=True,
+        ):
             extraction_calls.append(
                 {
                     "node_id": node.id if node else None,
@@ -127,13 +130,17 @@ class TestVariableExtractionDuringTransitions:
                 }
             )
             # Call original to maintain behavior
-            await original_perform_extraction(node)
+            return await original_perform_extraction(
+                node,
+                run_in_background=run_in_background,
+            )
 
         engine._perform_variable_extraction_if_needed = tracked_perform_extraction
 
         # Create the pipeline
         pipeline = Pipeline(
             [
+                mock_transport.input(),
                 llm,
                 tts,
                 mock_transport.output(),
@@ -156,29 +163,14 @@ class TestVariableExtractionDuringTransitions:
             new_callable=AsyncMock,
             return_value=1,
         ):
-            with patch(
-                "api.services.workflow.pipecat_engine.apply_disposition_mapping",
+            # Mock the actual extraction to avoid needing a real LLM
+            with patch.object(
+                VariableExtractionManager,
+                "_perform_extraction",
                 new_callable=AsyncMock,
-                return_value="completed",
+                return_value={"user_name": "John Doe"},
             ):
-                # Mock the actual extraction to avoid needing a real LLM
-                with patch.object(
-                    VariableExtractionManager,
-                    "_perform_extraction",
-                    new_callable=AsyncMock,
-                    return_value={"user_name": "John Doe"},
-                ):
-
-                    async def run_pipeline():
-                        await run_pipeline_worker(task)
-
-                    async def initialize_engine():
-                        await asyncio.sleep(0.01)
-                        await engine.initialize()
-                        await engine.set_node(engine.workflow.start_node_id)
-                        await engine.llm.queue_frame(LLMContextFrame(engine.context))
-
-                    await asyncio.gather(run_pipeline(), initialize_engine())
+                await run_engine_test_pipeline(task, engine, mock_transport)
 
         # Should have 3 LLM generations
         assert llm.get_current_step() == 3
@@ -221,3 +213,117 @@ class TestVariableExtractionDuringTransitions:
             f"Expected NO extraction calls for AGENT node (extraction disabled), "
             f"but got {len(agent_extraction_calls)} calls"
         )
+
+
+@pytest.mark.asyncio
+async def test_transfer_flush_is_repeatable_without_consuming_final_extraction():
+    engine = PipecatEngine(workflow=None, call_context_vars={}, workflow_run_id=1)
+    engine._current_node = SimpleNamespace(name="transfer-node")
+    engine._await_pending_extractions = AsyncMock()
+    engine._perform_variable_extraction_if_needed = AsyncMock(
+        return_value={"state": "ME"}
+    )
+
+    await engine.flush_variable_extraction()
+    await engine.flush_variable_extraction()
+
+    assert engine._final_extraction_done is False
+    assert engine._await_pending_extractions.await_count == 2
+    assert engine._perform_variable_extraction_if_needed.await_count == 2
+
+    first_result = await engine.perform_final_variable_extraction()
+    second_result = await engine.perform_final_variable_extraction()
+
+    assert engine._final_extraction_done is True
+    assert first_result is second_result is None
+    assert engine._await_pending_extractions.await_count == 3
+    assert engine._perform_variable_extraction_if_needed.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_extraction_uses_dedicated_llm(simple_workflow: WorkflowGraph):
+    """Extraction must not fall back to the conversational LLM when one is supplied."""
+    conversation_llm = SimpleNamespace(run_inference=AsyncMock())
+    extraction_llm = SimpleNamespace(
+        run_inference=AsyncMock(return_value='{"user_intent": "support"}'),
+        model_name="variable-extraction-model",
+    )
+    context = LLMContext(messages=[{"role": "user", "content": "I need help"}])
+    engine = PipecatEngine(
+        llm=conversation_llm,
+        variable_extraction_llm=extraction_llm,
+        context=context,
+        workflow=simple_workflow,
+        call_context_vars={},
+        workflow_run_id=1,
+    )
+    manager = VariableExtractionManager(engine)
+    node = simple_workflow.nodes[simple_workflow.start_node_id]
+
+    with patch(
+        "api.services.workflow.pipecat_engine_variable_extractor.ensure_tracing",
+        return_value=False,
+    ):
+        result = await manager._perform_extraction(
+            node.extraction_variables,
+            parent_ctx=None,
+            extraction_prompt=node.extraction_prompt,
+        )
+
+    assert result == {"user_intent": "support"}
+    extraction_llm.run_inference.assert_awaited_once()
+    conversation_llm.run_inference.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_extraction_prompt_includes_tool_parameters(
+    simple_workflow: WorkflowGraph,
+):
+    extraction_llm = SimpleNamespace(
+        run_inference=AsyncMock(return_value='{"user_intent": "support"}'),
+        model_name="variable-extraction-model",
+    )
+    context = LLMContext(
+        messages=[
+            {"role": "user", "content": "Please look up account 42."},
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "lookup-1",
+                        "function": {
+                            "name": "lookup_account",
+                            "arguments": '{"account_id": 42}',
+                        },
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "lookup-1",
+                "content": '{"status": "ok", "data": {"tier": "gold"}}',
+            },
+        ]
+    )
+    engine = PipecatEngine(
+        variable_extraction_llm=extraction_llm,
+        context=context,
+        workflow=simple_workflow,
+        call_context_vars={},
+        workflow_run_id=1,
+    )
+    manager = VariableExtractionManager(engine)
+    node = simple_workflow.nodes[simple_workflow.start_node_id]
+
+    with patch(
+        "api.services.workflow.pipecat_engine_variable_extractor.ensure_tracing",
+        return_value=False,
+    ):
+        await manager._perform_extraction(
+            node.extraction_variables,
+            parent_ctx=None,
+            extraction_prompt=node.extraction_prompt,
+        )
+
+    prompt = extraction_llm.run_inference.await_args.args[0].messages[0]["content"]
+    assert '[Tool Call: lookup_account]\nArguments: {"account_id": 42}' in prompt

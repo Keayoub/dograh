@@ -1,18 +1,25 @@
 """Execute integrations (QA analysis, webhooks) after workflow run completion."""
 
 import random
+from datetime import UTC, datetime
 from typing import Any, Dict, Optional
 
-import httpx
 from loguru import logger
 from pipecat.utils.enums import EndTaskReason
 from pipecat.utils.run_context import set_current_org_id, set_current_run_id
 from pydantic import ValidationError
 
-from api.constants import BACKEND_API_ENDPOINT
+from api.constants import BACKEND_API_ENDPOINT, DEFAULT_WEBHOOK_DELIVERY_CONFIG
 from api.db import db_client
 from api.db.models import WorkflowRunModel
 from api.enums import OrganizationConfigurationKey
+from api.errors.failure import (
+    DograhFailure,
+    ErrorSource,
+    ErrorType,
+    classify_exception,
+    log_failure,
+)
 from api.services.integrations import (
     IntegrationCompletionContext,
     has_completion_handlers,
@@ -26,7 +33,8 @@ from api.services.workflow.dto import (
     WebhookRFNode,
 )
 from api.services.workflow.qa import run_per_node_qa_analysis
-from api.utils.credential_auth import build_auth_header
+from api.tasks.function_names import FunctionNames
+from api.utils.recording_artifacts import get_recording_storage_key
 from api.utils.template_renderer import render_template
 
 
@@ -204,6 +212,7 @@ async def run_integrations_post_workflow_run(_ctx, workflow_run_id: int):
                 host=langfuse_config.get("host"),
                 public_key=langfuse_config.get("public_key"),
                 secret_key=langfuse_config.get("secret_key"),
+                project_id=langfuse_config.get("project_id"),
             )
 
         # Step 2: Get workflow definition from the run's pinned version
@@ -307,23 +316,50 @@ async def run_integrations_post_workflow_run(_ctx, workflow_run_id: int):
             try:
                 webhook_node = WebhookRFNode.model_validate(node)
             except ValidationError as e:
-                logger.warning(
-                    f"Webhook node #{node_id} failed validation, skipping: {e}"
+                log_failure(
+                    DograhFailure(
+                        source=ErrorSource.WEBHOOK,
+                        type=ErrorType.CONFIG_ERROR,
+                        code="webhook-invalid-config",
+                        internal_message=f"Webhook node #{node_id} failed validation: {e}",
+                        external_message="Check the webhook node configuration.",
+                        provider="webhook",
+                        error_owner="user",
+                        retryable=False,
+                    ),
+                    organization_id=organization_id,
+                    workflow_run_id=workflow_run_id,
+                    node_id=str(node_id),
                 )
                 continue
 
             webhook_data = webhook_node.data
             try:
-                await _execute_webhook_node(
+                await _enqueue_webhook_delivery(
                     webhook_data=webhook_data,
                     render_context=render_context,
                     organization_id=organization_id,
+                    workflow_run_id=workflow_run_id,
+                    webhook_node_id=str(node_id),
                 )
             except Exception as e:
-                logger.warning(f"Failed to execute webhook '{webhook_data.name}': {e}")
+                log_failure(
+                    classify_exception(
+                        e,
+                        source=ErrorSource.WEBHOOK,
+                        provider="webhook",
+                        error_owner="user",
+                    ),
+                    organization_id=organization_id,
+                    workflow_run_id=workflow_run_id,
+                    node_id=str(node_id),
+                )
 
     except Exception as e:
-        logger.error(f"Error running integrations: {e}", exc_info=True)
+        log_failure(
+            classify_exception(e, source=ErrorSource.INTEGRATION),
+            workflow_run_id=workflow_run_id,
+        )
         raise
 
 
@@ -339,6 +375,10 @@ def _build_render_context(
     Returns:
         Dict containing all fields available for template rendering
     """
+    extra = workflow_run.extra or {}
+    user_recording_key = get_recording_storage_key(extra, "user")
+    bot_recording_key = get_recording_storage_key(extra, "bot")
+
     context = {
         # Top-level fields
         "workflow_run_id": workflow_run.id,
@@ -353,6 +393,7 @@ def _build_render_context(
         "cost_info": workflow_run.usage_info or {},
         # Annotations (includes QA results)
         "annotations": workflow_run.annotations or {},
+        "extra": extra,
     }
 
     # Add public download URLs if token is available
@@ -366,96 +407,121 @@ def _build_render_context(
         context["transcript_url"] = (
             f"{base_url}/transcript" if workflow_run.transcript_url else None
         )
+        context["user_recording_url"] = (
+            f"{base_url}/user_recording" if user_recording_key else None
+        )
+        context["bot_recording_url"] = (
+            f"{base_url}/bot_recording" if bot_recording_key else None
+        )
     else:
         context["recording_url"] = workflow_run.recording_url
         context["transcript_url"] = workflow_run.transcript_url
+        context["user_recording_url"] = user_recording_key
+        context["bot_recording_url"] = bot_recording_key
 
     return context
 
 
-async def _execute_webhook_node(
+def _build_webhook_payload(
+    webhook_data: WebhookNodeData, render_context: Dict[str, Any]
+) -> Any:
+    """Render the webhook payload once, so retries are deterministic.
+
+    Always surfaces the call disposition on the outgoing payload, even when the
+    template author didn't reference it. Fill only if absent so a template that
+    sets it explicitly keeps its own value.
+    """
+    payload = render_template(webhook_data.payload_template or {}, render_context)
+
+    if isinstance(payload, dict):
+        gathered_context = render_context.get("gathered_context") or {}
+        payload.setdefault(
+            "call_disposition", gathered_context.get("call_disposition", "")
+        )
+
+    return payload
+
+
+def _custom_headers(webhook_data: WebhookNodeData) -> list[dict]:
+    """Custom headers to persist on the delivery row, exactly as configured.
+
+    Every header the user configures is stored and sent verbatim, auth-bearing
+    ones included: the receiver decides what it needs to authenticate. Values
+    therefore sit in plaintext on the delivery row; logs stay clean via the
+    redaction in ``_log_webhook_request``. A credential remains the better
+    option when the secret should be rotatable and never persisted here.
+    """
+    return [
+        {"key": h.key, "value": h.value}
+        for h in webhook_data.custom_headers or []
+        if h.key and h.value
+    ]
+
+
+async def _enqueue_webhook_delivery(
     webhook_data: WebhookNodeData,
     render_context: Dict[str, Any],
     organization_id: int,
-) -> bool:
-    """
-    Execute a single webhook node.
+    workflow_run_id: int,
+    webhook_node_id: str,
+) -> None:
+    """Persist a durable delivery record and enqueue its first send attempt.
 
-    Args:
-        webhook_data: The validated webhook node data
-        render_context: Context for template rendering
-        organization_id: For credential lookup
+    The actual HTTP request is performed by the ``deliver_webhook`` task, which
+    retries transient failures with backoff and dead-letters exhausted/permanent
+    ones. This replaces the previous one-shot, best-effort inline POST that lost
+    the webhook entirely on a single network error.
 
-    Returns:
-        True if successful, False otherwise
+    Idempotent on ``(workflow_run_id, webhook_node_id)``: a retried run reuses the
+    existing delivery row and does not enqueue a second send.
     """
     webhook_name = webhook_data.name
 
     if not webhook_data.enabled:
         logger.debug(f"Webhook '{webhook_name}' is disabled, skipping")
-        return True
+        return
 
     url = webhook_data.endpoint_url
     if not url:
         logger.warning(f"Webhook '{webhook_name}' has no endpoint URL")
-        return False
+        return
 
-    headers = {"Content-Type": "application/json"}
+    payload = _build_webhook_payload(webhook_data, render_context)
 
-    credential_uuid = webhook_data.credential_uuid
-    if credential_uuid:
-        credential = await db_client.get_credential_by_uuid(
-            credential_uuid, organization_id
-        )
-        if credential:
-            auth_header = build_auth_header(credential)
-            headers.update(auth_header)
-            logger.debug(f"Applied credential '{credential.name}' to webhook")
-        else:
-            logger.warning(
-                f"Credential {credential_uuid} not found for webhook '{webhook_name}'"
-            )
-
-    for h in webhook_data.custom_headers or []:
-        if h.key and h.value:
-            headers[h.key] = h.value
-
-    payload = render_template(webhook_data.payload_template or {}, render_context)
-
+    # Persist the request definition. Custom headers are stored verbatim; a
+    # credential is stored by reference (uuid) and re-resolved at send time.
+    custom_headers = _custom_headers(webhook_data)
     method = (webhook_data.http_method or "POST").upper()
 
-    logger.info(f"Executing webhook '{webhook_name}': {method}")
+    delivery, created = await db_client.create_webhook_delivery(
+        workflow_run_id=workflow_run_id,
+        organization_id=organization_id,
+        endpoint_url=url,
+        payload=payload,
+        max_attempts=DEFAULT_WEBHOOK_DELIVERY_CONFIG["max_attempts"],
+        http_method=method,
+        webhook_name=webhook_name,
+        custom_headers=custom_headers or None,
+        credential_uuid=webhook_data.credential_uuid,
+        webhook_node_id=webhook_node_id,
+    )
 
-    try:
-        async with httpx.AsyncClient() as client:
-            if method in ("POST", "PUT", "PATCH"):
-                response = await client.request(
-                    method=method,
-                    url=url,
-                    json=payload,
-                    headers=headers,
-                    timeout=30.0,
-                )
-            else:  # GET, DELETE
-                response = await client.request(
-                    method=method,
-                    url=url,
-                    headers=headers,
-                    timeout=30.0,
-                )
-
-            response.raise_for_status()
-            logger.info(f"Webhook '{webhook_name}' succeeded: {response.status_code}")
-            return True
-
-    except httpx.HTTPStatusError as e:
-        logger.warning(
-            f"Webhook '{webhook_name}' failed: {e.response.status_code} - {e.response.text[:200]}"
+    if not created:
+        logger.info(
+            f"Webhook '{webhook_name}' delivery already exists for run "
+            f"{workflow_run_id} node {webhook_node_id}; not re-enqueuing"
         )
-        return False
-    except httpx.RequestError as e:
-        logger.warning(f"Webhook '{webhook_name}' request error: {e}")
-        return False
-    except Exception as e:
-        logger.error(f"Webhook '{webhook_name}' unexpected error: {e}")
-        return False
+        return
+
+    # Lazy import avoids a circular import (arq imports this module at load time).
+    from api.tasks.arq import enqueue_job
+
+    await enqueue_job(
+        FunctionNames.DELIVER_WEBHOOK,
+        delivery.id,
+        _job_id=f"webhook-delivery-{delivery.id}-0",
+    )
+    logger.info(
+        f"Enqueued webhook '{webhook_name}' delivery {delivery.delivery_uuid} "
+        f"for run {workflow_run_id}"
+    )

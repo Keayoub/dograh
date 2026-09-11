@@ -17,7 +17,8 @@ from dograh_sdk.typed._base import TypedNode
 class StartCall_Extraction_variablesRow:
     """
     Each entry declares one variable to capture, with its name, data type,
-    and extraction hint.
+    and extraction hint. Call outcomes are configured separately in workflow
+    settings.
     """
 
     name: str
@@ -65,8 +66,7 @@ class StartCall(TypedNode):
     greeting: Optional[str] = None
     """
     Text spoken via TTS at the start of the call. Supports
-    {{template_variables}}. Leave empty to skip the greeting. Not supported
-    with realtime (speech-to-speech) models.
+    {{template_variables}}. Leave empty to skip the greeting.
     """
 
     greeting_recording_id: Optional[str] = None
@@ -109,7 +109,8 @@ class StartCall(TypedNode):
     extraction_variables: list[StartCall_Extraction_variablesRow] = field(default_factory=list)
     """
     Each entry declares one variable to capture, with its name, data type,
-    and extraction hint.
+    and extraction hint. Call outcomes are configured separately in workflow
+    settings.
     """
 
     tool_uuids: list[str] = field(default_factory=list)
@@ -122,11 +123,10 @@ class StartCall(TypedNode):
     Documents the agent can reference.
     """
 
-    pre_call_fetch_enabled: bool = False
+    pre_call_fetch_mode: Literal['disabled', 'always', 'inbound', 'outbound'] = 'disabled'
     """
-    When true, makes a POST request to an external API before the call
-    starts and merges the JSON response into the call context as template
-    variables.
+    Controls when a POST request is made to enrich the call context before
+    the Start node opens.
     """
 
     pre_call_fetch_url: Optional[str] = None

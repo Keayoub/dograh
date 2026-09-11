@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
+from sqlalchemy import exists
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.future import select
 
@@ -8,6 +9,7 @@ from api.db.base_client import BaseDBClient
 from api.db.models import (
     APIKeyModel,
     OrganizationModel,
+    UserModel,
     organization_users_association,
 )
 from api.utils.api_key import generate_api_key
@@ -24,8 +26,24 @@ class OrganizationClient(BaseDBClient):
             )
             return result.scalars().first()
 
+    async def get_organization_users(self, organization_id: int) -> list[UserModel]:
+        """Get all users linked to an organization (many-to-many)."""
+        async with self.async_session() as session:
+            result = await session.execute(
+                select(UserModel)
+                .join(
+                    organization_users_association,
+                    organization_users_association.c.user_id == UserModel.id,
+                )
+                .where(
+                    organization_users_association.c.organization_id == organization_id
+                )
+                .order_by(UserModel.id)
+            )
+            return list(result.scalars().all())
+
     async def get_or_create_organization_by_provider_id(
-        self, org_provider_id: str, user_id: int
+        self, org_provider_id: str, user_id: int | None
     ) -> tuple[OrganizationModel, bool]:
         """Get an existing organization by provider_id or create a new one.
 
@@ -71,8 +89,10 @@ class OrganizationClient(BaseDBClient):
                     error_msg = f"Failed to create or fetch organization with provider_id {org_provider_id}"
                     raise ValueError(error_msg)
 
-                # Only create API key if we actually created the organization
-                if was_created:
+                # User-driven organization creation gets a default API key.
+                # Service provisioning has no owning user and must not create a
+                # key with a synthetic foreign-key reference.
+                if was_created and user_id is not None:
                     # Create a default API key for the new organization
                     _, key_hash, key_prefix = generate_api_key()
 
@@ -90,6 +110,24 @@ class OrganizationClient(BaseDBClient):
                 await session.refresh(organization)
                 return organization, was_created
             return organization, False
+
+    async def is_user_member_of_organization(
+        self, user_id: int, organization_id: int
+    ) -> bool:
+        """Return True if the user belongs to the given organization."""
+        async with self.async_session() as session:
+            result = await session.execute(
+                select(
+                    exists().where(
+                        (organization_users_association.c.user_id == user_id)
+                        & (
+                            organization_users_association.c.organization_id
+                            == organization_id
+                        )
+                    )
+                )
+            )
+            return bool(result.scalar())
 
     async def add_user_to_organization(
         self, user_id: int, organization_id: int

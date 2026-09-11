@@ -1,48 +1,112 @@
 from __future__ import annotations
 
-import time
-from collections import deque
-from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
-from loguru import logger
-from pipecat.frames.frames import (
-    BotStartedSpeakingFrame,
-    BotStoppedSpeakingFrame,
-    CancelFrame,
-    EndFrame,
-    FunctionCallInProgressFrame,
-    FunctionCallResultFrame,
-    MetricsFrame,
-    StartFrame,
-    UserStartedSpeakingFrame,
-    UserStoppedSpeakingFrame,
-    VADUserStoppedSpeakingFrame,
-)
-from pipecat.observers.base_observer import BaseObserver, FramePushed
-from pipecat.observers.turn_tracking_observer import TurnTrackingObserver
-from pipecat.observers.user_bot_latency_observer import UserBotLatencyObserver
-from pipecat.processors.frame_processor import FrameDirection
-from pipecat.utils.context.message_sanitization import strip_thought_ids_from_messages
-from tuner_pipecat_sdk.accumulator import CallAccumulator
-from tuner_pipecat_sdk.payload_builder import build_payload
+from tuner_pipecat_sdk import Observer
 
 from api.enums import WorkflowRunMode
 
 TUNER_RECORDING_PLACEHOLDER = "pipecat://no-recording"
 
+# Placeholder credentials for the SDK Observer's TunerConfig. Real BYOK credentials
+# (api_key / workspace_id / agent_id) are per tuner node and are applied later during
+# the deferred delivery phase (completion.py), so they are not known here. TunerConfig
+# validators require a non-empty api_key/agent_id and a positive workspace_id, hence
+# these placeholders.
+_DEFERRED_API_KEY = "deferred"
+_DEFERRED_WORKSPACE_ID = 1
+_DEFERRED_AGENT_ID = "deferred"
 
-@dataclass(frozen=True)
-class _PayloadConfig:
-    call_id: str
-    call_type: str
-    recording_url: str
-    asr_model: str
-    llm_model: str
-    tts_model: str
-    sip_call_id: str | None = None
-    sip_headers: dict[str, str] | None = None
-    agent_version: int | None = None
+# Fallbacks, in preference order, for when the SIP Call-ID is not on the
+# session object. ``CID`` is the same value Cloudonix puts in ``callIds``,
+# carried as a header. The correlation ids after it are Tuner's own marker,
+# written onto the INVITE as ``X-Correlation-Id`` and arriving with the ``X-``
+# stripped — a weaker link than the Call-ID, since only Tuner sets it.
+_SIP_CALL_ID_HEADER_NAMES: tuple[str, ...] = (
+    "cid",
+    "call-id",
+    "correlation-id",
+    "x-correlation-id",
+)
+
+# Where Cloudonix puts the custom SIP headers it received, by call origin:
+# ``trunk-sip-headers`` for calls arriving at the border or over a trunk,
+# ``subscriber-sip-headers`` for calls placed by a domain subscriber.
+_SIP_HEADER_PROFILE_FIELDS: tuple[str, ...] = (
+    "trunk-sip-headers",
+    "subscriber-sip-headers",
+)
+
+# Only correlation identifiers leave the deployment. The same field also carries
+# provider authentication, source addresses and upstream account ids
+# (``Cloudonix-Signature``, ``Cloudonix-IP``, ``Twilio-AccountSid``), none of
+# which Tuner correlates on — so forwarding the dict wholesale would disclose
+# provider and tenant metadata for no benefit.
+_EXPORTABLE_SIP_HEADER_NAMES: frozenset[str] = frozenset(_SIP_CALL_ID_HEADER_NAMES)
+
+
+def _first_str(value: Any) -> str | None:
+    """First non-empty string in a list, or the value itself if it is one."""
+    if isinstance(value, str):
+        return value or None
+    if isinstance(value, list):
+        for item in value:
+            if isinstance(item, str) and item:
+                return item
+    return None
+
+
+def extract_inbound_sip_metadata(
+    workflow_run: Any,
+) -> tuple[str | None, dict[str, str] | None]:
+    """Recover the SIP Call-ID of an inbound call, and its forwarded headers.
+
+    Tuner links a call we report back to the simulation that placed it by
+    matching the caller's SIP Call-ID. Cloudonix keeps it off the
+    TwiML-compatible fields — ``CallSid`` and ``Session`` are both the Cloudonix
+    session token — but exposes it on the session object, identically in
+    ``callIds``, ``profile.callId``, and a ``CID`` header. Verified against live
+    calls: the value read here is the one the caller recorded for the same call.
+
+    The webhook body is already persisted by the inbound dispatcher, so nothing
+    has to be captured at call time. A call with no Call-ID to recover yields
+    ``(None, None)``, and the payload the SDK builds then omits both fields,
+    leaving delivery unchanged.
+    """
+    logs = getattr(workflow_run, "logs", None) or {}
+    inbound = logs.get("inbound_webhook") or {}
+    raw_webhook_data = inbound.get("raw_webhook_data") or {}
+
+    session_data = raw_webhook_data.get("SessionData")
+    if not isinstance(session_data, dict):
+        return None, None
+    profile = session_data.get("profile")
+    profile = profile if isinstance(profile, dict) else {}
+
+    headers: dict[str, str] = {}
+    for field in _SIP_HEADER_PROFILE_FIELDS:
+        forwarded = profile.get(field)
+        if not isinstance(forwarded, dict):
+            continue
+        for name, value in forwarded.items():
+            if value is None or str(name).lower() not in _EXPORTABLE_SIP_HEADER_NAMES:
+                continue
+            headers.setdefault(str(name), str(value))
+
+    lowered = {name.lower(): value for name, value in headers.items()}
+    sip_call_id = (
+        _first_str(session_data.get("callIds"))
+        or _first_str(profile.get("callId"))
+        or next(
+            (lowered[name] for name in _SIP_CALL_ID_HEADER_NAMES if lowered.get(name)),
+            None,
+        )
+    )
+
+    # The surviving correlation headers are reported even when no id was
+    # recovered from them: they reach Tuner as ``sip_headers`` and show which of
+    # them the provider forwarded, so an unlinked call stays diagnosable.
+    return sip_call_id, headers or None
 
 
 def mode_to_tuner_call_type(mode: str | None) -> str:
@@ -54,8 +118,15 @@ def mode_to_tuner_call_type(mode: str | None) -> str:
     return "phone_call"
 
 
-class TunerCollector(BaseObserver):
-    """Collect runtime call metadata and build a deferred Tuner payload."""
+class DeferredTunerObserver(Observer):
+    """SDK ``Observer`` that builds the Tuner payload from the live frame stream but
+    defers delivery to the completion phase instead of POSTing on call end.
+
+    The SDK ``Observer`` normally fire-and-forgets ``post_call`` when the call ends.
+    Dograh instead snapshots the payload into ``workflow_run.logs`` and delivers it
+    later (``completion.py``) — once per tuner node with that node's BYOK credentials,
+    after injecting the real ``recording_url`` and a locally-computed ``call_cost``.
+    """
 
     def __init__(
         self,
@@ -66,126 +137,37 @@ class TunerCollector(BaseObserver):
         llm_model: str = "",
         tts_model: str = "",
         agent_version: int | None = None,
-        max_frames: int = 500,
+        sip_call_id: str | None = None,
+        sip_headers: dict[str, str] | None = None,
     ) -> None:
-        super().__init__()
-        self._call_id = str(workflow_run_id)
-        self._call_type = call_type
-        self._asr_model = asr_model
-        self._llm_model = llm_model
-        self._tts_model = tts_model
-        self._agent_version = agent_version
-        self._acc = CallAccumulator()
-        self._acc.call_start_abs_ns = time.time_ns()
-        self._pipeline_start_rel_ns: int | None = None
-        self._context_provider: Callable[[], list[dict[str, Any]]] | None = None
-        self._processed_frames: set[int] = set()
-        self._frame_history: deque[int] = deque(maxlen=max_frames)
+        super().__init__(
+            api_key=_DEFERRED_API_KEY,
+            workspace_id=_DEFERRED_WORKSPACE_ID,
+            agent_id=_DEFERRED_AGENT_ID,
+            call_id=str(workflow_run_id),
+            call_type=call_type,
+            recording_url=TUNER_RECORDING_PLACEHOLDER,
+            asr_model=asr_model,
+            llm_model=llm_model,
+            tts_model=tts_model,
+            agent_version=agent_version,
+            sip_call_id=sip_call_id,
+            sip_headers=sip_headers,
+        )
 
-    def attach_context(self, provider: Callable[[], list[dict[str, Any]]]) -> None:
-        self._context_provider = provider
+    async def _flush(self) -> None:
+        # Suppress the SDK's runtime post_call; delivery is deferred (see class docstring).
+        return None
 
     def set_disconnection_reason(self, reason: str | None) -> None:
         if reason:
             self._acc.set_disconnection_reason(reason)
-
-    def attach_turn_tracking_observer(
-        self, turn_tracker: TurnTrackingObserver | None
-    ) -> None:
-        if turn_tracker is None:
-            return
-
-        @turn_tracker.event_handler("on_turn_started")
-        async def _on_turn_started(_tracker: Any, turn_number: int) -> None:
-            self._acc.on_turn_started(turn_number, time.time_ns())
-
-        @turn_tracker.event_handler("on_turn_ended")
-        async def _on_turn_ended(
-            _tracker: Any, turn_number: int, _duration: float, was_interrupted: bool
-        ) -> None:
-            self._acc.on_turn_ended(turn_number, was_interrupted)
-
-    def attach_latency_observer(
-        self, latency_observer: UserBotLatencyObserver | None
-    ) -> None:
-        if latency_observer is None:
-            return
-
-        @latency_observer.event_handler("on_latency_measured")
-        async def _on_latency_measured(_observer: Any, latency: float) -> None:
-            self._acc.on_latency_measured(latency)
-
-        @latency_observer.event_handler("on_latency_breakdown")
-        async def _on_latency_breakdown(_observer: Any, breakdown: Any) -> None:
-            self._acc.on_latency_breakdown(breakdown)
-
-    async def on_push_frame(self, data: FramePushed):
-        if data.direction != FrameDirection.DOWNSTREAM:
-            return
-
-        if data.frame.id in self._processed_frames:
-            return
-
-        self._processed_frames.add(data.frame.id)
-        self._frame_history.append(data.frame.id)
-        if len(self._processed_frames) > len(self._frame_history):
-            self._processed_frames = set(self._frame_history)
-
-        frame = data.frame
-
-        # data.timestamp is a pipeline-relative clock (ns since pipeline start).
-        # Convert to absolute ns so the accumulator's _rel_ms() works correctly.
-        if self._pipeline_start_rel_ns is None:
-            self._pipeline_start_rel_ns = data.timestamp
-        timestamp_ns = self._acc.call_start_abs_ns + (
-            data.timestamp - self._pipeline_start_rel_ns
-        )
-
-        if isinstance(frame, StartFrame):
-            self._acc.on_start(timestamp_ns)
-        elif isinstance(frame, FunctionCallInProgressFrame):
-            self._acc.on_function_call_in_progress(frame, timestamp_ns)
-        elif isinstance(frame, FunctionCallResultFrame):
-            self._acc.on_function_call_result(frame.tool_call_id, timestamp_ns)
-        elif isinstance(frame, MetricsFrame):
-            self._acc.on_metrics_frame(frame)
-        elif isinstance(frame, UserStartedSpeakingFrame):
-            self._acc.on_user_started_speaking(timestamp_ns)
-        elif isinstance(frame, UserStoppedSpeakingFrame):
-            self._acc.on_user_stopped_speaking(timestamp_ns)
-            self._acc.on_user_turn_stopped(timestamp_ns)
-        elif isinstance(frame, BotStartedSpeakingFrame):
-            self._acc.on_bot_started_speaking(timestamp_ns)
-        elif isinstance(frame, BotStoppedSpeakingFrame):
-            self._acc.on_bot_stopped(timestamp_ns)
-        elif isinstance(frame, VADUserStoppedSpeakingFrame):
-            self._acc.on_vad_stopped(timestamp_ns)
-        elif isinstance(frame, (CancelFrame, EndFrame)):
-            self._acc.on_call_end(timestamp_ns)
 
     def build_payload_snapshot(
         self,
         *,
         recording_url: str = TUNER_RECORDING_PLACEHOLDER,
     ) -> dict[str, Any] | None:
-        if self._context_provider is None:
-            logger.warning(
-                "[tuner] no context provider attached; skipping payload snapshot"
-            )
-            return None
-
-        transcript = strip_thought_ids_from_messages(list(self._context_provider()))
-        payload = build_payload(
-            self._acc,
-            _PayloadConfig(
-                call_id=self._call_id,
-                call_type=self._call_type,
-                recording_url=recording_url,
-                asr_model=self._asr_model,
-                llm_model=self._llm_model,
-                tts_model=self._tts_model,
-                agent_version=self._agent_version,
-            ),
-            transcript,
-        )
+        self._config.recording_url = recording_url
+        payload = self._acc.build_payload(self._config, None)
         return payload.to_dict()

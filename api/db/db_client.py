@@ -11,9 +11,11 @@ from api.db.organization_usage_client import OrganizationUsageClient
 from api.db.reports_client import ReportsClient
 from api.db.telephony_configuration_client import TelephonyConfigurationClient
 from api.db.telephony_phone_number_client import TelephonyPhoneNumberClient
+from api.db.telephony_trunk_client import TelephonyTrunkClient
 from api.db.tool_client import ToolClient
 from api.db.user_client import UserClient
 from api.db.webhook_credential_client import WebhookCredentialClient
+from api.db.webhook_delivery_client import WebhookDeliveryClient
 from api.db.workflow_client import WorkflowClient
 from api.db.workflow_recording_client import WorkflowRecordingClient
 from api.db.workflow_run_client import WorkflowRunClient
@@ -37,11 +39,13 @@ class DBClient(
     EmbedTokenClient,
     AgentTriggerClient,
     WebhookCredentialClient,
+    WebhookDeliveryClient,
     ToolClient,
     KnowledgeBaseClient,
     WorkflowRecordingClient,
     TelephonyConfigurationClient,
     TelephonyPhoneNumberClient,
+    TelephonyTrunkClient,
     FolderClient,
 ):
     """
@@ -53,7 +57,7 @@ class DBClient(
     - UserClient: handles user and user configuration operations
     - OrganizationClient: handles organization operations
     - OrganizationConfigurationClient: handles organization configuration operations
-    - OrganizationUsageClient: handles organization usage and quota operations
+    - OrganizationUsageClient: handles organization usage reporting aggregates
     - IntegrationClient: handles integration operations
     - WorkflowTemplateClient: handles workflow template operations
     - CampaignClient: handles campaign operations
@@ -62,6 +66,7 @@ class DBClient(
     - EmbedTokenClient: handles embed token and session operations
     - AgentTriggerClient: handles agent trigger operations for API-based call triggering
     - WebhookCredentialClient: handles webhook credential operations
+    - WebhookDeliveryClient: handles durable outbound webhook delivery records
     - ToolClient: handles tool operations for reusable HTTP API tools
     - KnowledgeBaseClient: handles knowledge base document and vector search operations
     - FolderClient: handles folder operations for grouping workflows (agents)

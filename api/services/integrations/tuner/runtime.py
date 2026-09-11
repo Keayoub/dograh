@@ -2,13 +2,19 @@ from __future__ import annotations
 
 from typing import Any
 
+from loguru import logger
+
 from api.services.configuration.registry import ServiceProviders
 from api.services.integrations.base import (
     IntegrationRuntimeContext,
     IntegrationRuntimeSession,
 )
 
-from .collector import TunerCollector, mode_to_tuner_call_type
+from .collector import (
+    DeferredTunerObserver,
+    extract_inbound_sip_metadata,
+    mode_to_tuner_call_type,
+)
 
 
 def _format_model_label(provider: str | None, model: str | None) -> str:
@@ -53,23 +59,25 @@ def _resolve_model_labels(context: IntegrationRuntimeContext) -> tuple[str, str,
 class TunerRuntimeSession(IntegrationRuntimeSession):
     name = "tuner"
 
-    def __init__(self, collector: TunerCollector) -> None:
-        self._collector = collector
+    def __init__(self, observer: DeferredTunerObserver) -> None:
+        self._observer = observer
 
     def attach(self, task: Any) -> None:
-        self._collector.attach_turn_tracking_observer(task.turn_tracking_observer)
-        self._collector.attach_latency_observer(task.user_bot_latency_observer)
-        task.add_observer(self._collector)
+        self._observer.attach_turn_tracking_observer(task.turn_tracking_observer)
+        task.add_observer(self._observer)
+        # The SDK Observer wires latency into the accumulator via its own latency
+        # observer, which must itself be registered to receive frames.
+        task.add_observer(self._observer.latency_observer)
 
     async def on_call_finished(
         self,
         *,
         gathered_context: dict[str, Any],
     ) -> dict[str, Any] | None:
-        self._collector.set_disconnection_reason(
+        self._observer.set_disconnection_reason(
             gathered_context.get("call_disposition")
         )
-        payload = self._collector.build_payload_snapshot()
+        payload = self._observer.build_payload_snapshot()
         if payload is None:
             return None
         return {"tuner_payload": payload}
@@ -88,14 +96,25 @@ def create_runtime_sessions(
 
     asr_model, llm_model, tts_model = _resolve_model_labels(context)
 
-    collector = TunerCollector(
+    # Carried through to Tuner so a call it originated is linked back to the
+    # simulation that placed it rather than logged as production traffic.
+    sip_call_id, sip_headers = extract_inbound_sip_metadata(context.workflow_run)
+    if sip_call_id:
+        logger.info(
+            "[tuner] inbound call carries SIP correlation id {} for run {}",
+            sip_call_id,
+            context.workflow_run_id,
+        )
+
+    observer = DeferredTunerObserver(
         workflow_run_id=context.workflow_run_id,
         call_type=mode_to_tuner_call_type(context.workflow_run.mode),
         asr_model=asr_model,
         llm_model=llm_model,
         tts_model=tts_model,
         agent_version=getattr(context.run_definition, "version_number", None),
+        sip_call_id=sip_call_id,
+        sip_headers=sip_headers,
     )
-    collector.attach_context(context.context_messages_provider)
 
-    return [TunerRuntimeSession(collector)]
+    return [TunerRuntimeSession(observer)]

@@ -81,7 +81,7 @@ export type AriConfigurationRequest = {
     /**
      * App Name
      *
-     * Stasis application name registered in Asterisk
+     * ARI username, matching the ari.conf section name
      */
     app_name: string;
     /**
@@ -97,43 +97,82 @@ export type AriConfigurationRequest = {
      */
     ws_client_name?: string;
     /**
-     * From Numbers
-     *
-     * List of SIP extensions/numbers for outbound calls (optional)
+     * Optional external PBX connected through this Asterisk instance
      */
-    from_numbers?: Array<string>;
+    external_pbx?: VicidialExternalPbxConfiguration | null;
 };
 
 /**
- * ARIConfigurationResponse
- *
- * Response schema for ARI configuration with masked sensitive fields.
+ * AWS Bedrock
  */
-export type AriConfigurationResponse = {
+export type AwsBedrockLlmConfiguration = {
     /**
      * Provider
      */
-    provider?: 'ari';
+    provider?: 'aws_bedrock';
     /**
-     * Ari Endpoint
+     * Api Key
+     *
+     * Not used for Bedrock — authentication is via the AWS credentials above. Leave blank.
      */
-    ari_endpoint: string;
+    api_key?: string | Array<string> | null;
     /**
-     * App Name
+     * Model
+     *
+     * Bedrock model ID — include the region inference-profile prefix (e.g. 'us.').
      */
-    app_name: string;
+    model?: string;
     /**
-     * App Password
+     * Aws Access Key
+     *
+     * AWS access key ID with bedrock:InvokeModel permission.
      */
-    app_password: string;
+    aws_access_key?: string;
     /**
-     * Ws Client Name
+     * Aws Secret Key
+     *
+     * AWS secret access key paired with the access key ID.
      */
-    ws_client_name?: string;
+    aws_secret_key?: string;
     /**
-     * From Numbers
+     * Aws Region
+     *
+     * AWS region where the Bedrock model is available.
      */
-    from_numbers: Array<string>;
+    aws_region?: string;
+};
+
+/**
+ * ActiveCallsResponse
+ */
+export type ActiveCallsResponse = {
+    /**
+     * Active Calls
+     */
+    active_calls: number;
+    /**
+     * Loop Lag P95 Ms
+     */
+    loop_lag_p95_ms?: number;
+    /**
+     * Loop Lag Max Ms
+     */
+    loop_lag_max_ms?: number;
+};
+
+/**
+ * AmbientNoiseConfigurationDefaults
+ */
+export type AmbientNoiseConfigurationDefaults = {
+    /**
+     * Enabled
+     */
+    enabled?: boolean;
+    /**
+     * Volume
+     */
+    volume?: number;
+    [key: string]: unknown;
 };
 
 /**
@@ -193,6 +232,60 @@ export type AppendTextChatMessageRequest = {
 };
 
 /**
+ * AssemblyAI
+ */
+export type AssemblyAisttConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'assemblyai';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * AssemblyAI realtime STT model.
+     */
+    model?: string;
+    /**
+     * Language
+     *
+     * ISO 639-1 language code.
+     */
+    language?: string;
+};
+
+/**
+ * Atlas Cloud
+ *
+ * Atlas Cloud OpenAI-compatible LLM API.
+ */
+export type AtlasCloudLlmService = {
+    /**
+     * Provider
+     */
+    provider?: 'atlascloud';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Atlas Cloud OpenAI-compatible chat model identifier.
+     */
+    model?: string;
+    /**
+     * Base Url
+     *
+     * Atlas Cloud OpenAI-compatible API endpoint.
+     */
+    base_url?: string;
+};
+
+/**
  * AuthResponse
  */
 export type AuthResponse = {
@@ -215,6 +308,386 @@ export type AuthUserResponse = {
      * Is Superuser
      */
     is_superuser: boolean;
+};
+
+/**
+ * AutoscaleMetricResponse
+ */
+export type AutoscaleMetricResponse = {
+    /**
+     * Value
+     */
+    value: number;
+};
+
+/**
+ * Azure OpenAI
+ */
+export type AzureLlmService = {
+    /**
+     * Provider
+     */
+    provider?: 'azure';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Azure deployment name (not the upstream OpenAI model id).
+     */
+    model?: string;
+    /**
+     * Endpoint
+     *
+     * Azure OpenAI resource endpoint (e.g. https://<resource>.openai.azure.com).
+     */
+    endpoint: string;
+};
+
+/**
+ * Azure OpenAI
+ */
+export type AzureOpenAiEmbeddingsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'azure';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Azure OpenAI embedding deployment name. The deployment must return 1536-dimensional embeddings.
+     */
+    model?: string;
+    /**
+     * Endpoint
+     *
+     * Azure OpenAI resource endpoint (e.g. https://<resource>.openai.azure.com).
+     */
+    endpoint: string;
+    /**
+     * Api Version
+     *
+     * Azure OpenAI API version for embeddings.
+     */
+    api_version?: string;
+};
+
+/**
+ * Azure OpenAI Realtime
+ *
+ * Azure OpenAI Realtime API — low-latency speech-to-speech conversations.
+ */
+export type AzureRealtimeLlmConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'azure_realtime';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Azure OpenAI realtime deployment name.
+     */
+    model?: string;
+    /**
+     * Endpoint
+     *
+     * Azure OpenAI resource endpoint (e.g. https://<resource>.openai.azure.com).
+     */
+    endpoint: string;
+    /**
+     * Voice
+     *
+     * Voice the model speaks in.
+     */
+    voice?: string;
+    /**
+     * Api Version
+     *
+     * Azure OpenAI Realtime protocol version. Use 'v1' for the GA API; date-based versions select the deprecated preview endpoint.
+     */
+    api_version?: string;
+};
+
+/**
+ * Azure Speech Services
+ *
+ * Azure Cognitive Services Speech — TTS and STT via the Azure Speech SDK.
+ */
+export type AzureSpeechSttConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'azure_speech';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Azure Speech recognition model (use 'latest_long' for continuous recognition).
+     */
+    model?: string;
+    /**
+     * Region
+     *
+     * Azure region for Speech Services (e.g. 'eastus', 'westeurope').
+     */
+    region?: string;
+    /**
+     * Language
+     *
+     * BCP-47 language code for recognition.
+     */
+    language?: string;
+};
+
+/**
+ * Azure Speech Services
+ *
+ * Azure Cognitive Services Speech — TTS and STT via the Azure Speech SDK.
+ */
+export type AzureSpeechTtsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'azure_speech';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Azure Speech synthesis engine (neural voices only).
+     */
+    model?: string;
+    /**
+     * Region
+     *
+     * Azure region for Speech Services (e.g. 'eastus', 'westeurope').
+     */
+    region?: string;
+    /**
+     * Voice
+     *
+     * Azure Neural voice name (e.g. 'en-US-AriaNeural').
+     */
+    voice?: string;
+    /**
+     * Language
+     *
+     * BCP-47 language code for synthesis.
+     */
+    language?: string;
+    /**
+     * Speed
+     *
+     * Speech speed multiplier (0.5 to 2.0).
+     */
+    speed?: number;
+};
+
+/**
+ * BYOKAIModelConfiguration
+ */
+export type ByokaiModelConfiguration = {
+    /**
+     * Mode
+     */
+    mode: 'pipeline' | 'realtime';
+    pipeline?: ByokPipelineAiModelConfiguration | null;
+    realtime?: ByokRealtimeAiModelConfiguration | null;
+};
+
+/**
+ * BYOKPipelineAIModelConfiguration
+ */
+export type ByokPipelineAiModelConfiguration = {
+    /**
+     * Llm
+     */
+    llm: ({
+        provider: 'openai';
+    } & OpenAillmService) | ({
+        provider: 'atlascloud';
+    } & AtlasCloudLlmService) | ({
+        provider: 'google_vertex';
+    } & GoogleVertexLlmConfiguration) | ({
+        provider: 'groq';
+    } & GroqLlmService) | ({
+        provider: 'openrouter';
+    } & OpenRouterLlmConfiguration) | ({
+        provider: 'google';
+    } & GoogleLlmService) | ({
+        provider: 'azure';
+    } & AzureLlmService) | ({
+        provider: 'dograh';
+    } & DograhLlmService) | ({
+        provider: 'aws_bedrock';
+    } & AwsBedrockLlmConfiguration) | ({
+        provider: 'speaches';
+    } & SpeachesLlmConfiguration) | ({
+        provider: 'huggingface';
+    } & HuggingFaceLlmConfiguration) | ({
+        provider: 'minimax';
+    } & MiniMaxLlmConfiguration) | ({
+        provider: 'sarvam';
+    } & SarvamLlmConfiguration);
+    /**
+     * Tts
+     */
+    tts: ({
+        provider: 'deepgram';
+    } & DeepgramTtsConfiguration) | ({
+        provider: 'google';
+    } & GoogleTtsConfiguration) | ({
+        provider: 'openai';
+    } & OpenAittsService) | ({
+        provider: 'elevenlabs';
+    } & ElevenlabsTtsConfiguration) | ({
+        provider: 'cartesia';
+    } & CartesiaTtsConfiguration) | ({
+        provider: 'inworld';
+    } & InworldTtsConfiguration) | ({
+        provider: 'dograh';
+    } & DograhTtsService) | ({
+        provider: 'sarvam';
+    } & SarvamTtsConfiguration) | ({
+        provider: 'camb';
+    } & CambTtsConfiguration) | ({
+        provider: 'rime';
+    } & RimeTtsConfiguration) | ({
+        provider: 'speaches';
+    } & SpeachesTtsConfiguration) | ({
+        provider: 'minimax';
+    } & MiniMaxTtsConfiguration) | ({
+        provider: 'azure_speech';
+    } & AzureSpeechTtsConfiguration) | ({
+        provider: 'smallest';
+    } & SmallestAittsConfiguration) | ({
+        provider: 'xai';
+    } & XaittsConfiguration) | ({
+        provider: 'lmnt';
+    } & LmntTtsConfiguration);
+    /**
+     * Stt
+     */
+    stt: ({
+        provider: 'deepgram';
+    } & DeepgramSttConfiguration) | ({
+        provider: 'cartesia';
+    } & CartesiaSttConfiguration) | ({
+        provider: 'openai';
+    } & OpenAisttConfiguration) | ({
+        provider: 'google';
+    } & GoogleSttConfiguration) | ({
+        provider: 'dograh';
+    } & DograhSttService) | ({
+        provider: 'speechmatics';
+    } & SpeechmaticsSttConfiguration) | ({
+        provider: 'sarvam';
+    } & SarvamSttConfiguration) | ({
+        provider: 'speaches';
+    } & SpeachesSttConfiguration) | ({
+        provider: 'huggingface';
+    } & HuggingFaceSttConfiguration) | ({
+        provider: 'assemblyai';
+    } & AssemblyAisttConfiguration) | ({
+        provider: 'gladia';
+    } & GladiaSttConfiguration) | ({
+        provider: 'azure_speech';
+    } & AzureSpeechSttConfiguration) | ({
+        provider: 'smallest';
+    } & SmallestAisttConfiguration) | ({
+        provider: 'elevenlabs';
+    } & ElevenlabsSttConfiguration);
+    /**
+     * Embeddings
+     */
+    embeddings?: ({
+        provider: 'openai';
+    } & OpenAiEmbeddingsConfiguration) | ({
+        provider: 'openrouter';
+    } & OpenRouterEmbeddingsConfiguration) | ({
+        provider: 'azure';
+    } & AzureOpenAiEmbeddingsConfiguration) | ({
+        provider: 'dograh';
+    } & DograhEmbeddingsConfiguration) | null;
+};
+
+/**
+ * BYOKRealtimeAIModelConfiguration
+ */
+export type ByokRealtimeAiModelConfiguration = {
+    /**
+     * Realtime
+     */
+    realtime: ({
+        provider: 'openai_realtime';
+    } & OpenAiRealtimeLlmConfiguration) | ({
+        provider: 'grok_realtime';
+    } & GrokRealtimeLlmConfiguration) | ({
+        provider: 'ultravox_realtime';
+    } & UltravoxRealtimeLlmConfiguration) | ({
+        provider: 'google_realtime';
+    } & GoogleRealtimeLlmConfiguration) | ({
+        provider: 'google_vertex_realtime';
+    } & GoogleVertexRealtimeLlmConfiguration) | ({
+        provider: 'azure_realtime';
+    } & AzureRealtimeLlmConfiguration);
+    /**
+     * Llm
+     */
+    llm: ({
+        provider: 'openai';
+    } & OpenAillmService) | ({
+        provider: 'atlascloud';
+    } & AtlasCloudLlmService) | ({
+        provider: 'google_vertex';
+    } & GoogleVertexLlmConfiguration) | ({
+        provider: 'groq';
+    } & GroqLlmService) | ({
+        provider: 'openrouter';
+    } & OpenRouterLlmConfiguration) | ({
+        provider: 'google';
+    } & GoogleLlmService) | ({
+        provider: 'azure';
+    } & AzureLlmService) | ({
+        provider: 'dograh';
+    } & DograhLlmService) | ({
+        provider: 'aws_bedrock';
+    } & AwsBedrockLlmConfiguration) | ({
+        provider: 'speaches';
+    } & SpeachesLlmConfiguration) | ({
+        provider: 'huggingface';
+    } & HuggingFaceLlmConfiguration) | ({
+        provider: 'minimax';
+    } & MiniMaxLlmConfiguration) | ({
+        provider: 'sarvam';
+    } & SarvamLlmConfiguration);
+    /**
+     * Embeddings
+     */
+    embeddings?: ({
+        provider: 'openai';
+    } & OpenAiEmbeddingsConfiguration) | ({
+        provider: 'openrouter';
+    } & OpenRouterEmbeddingsConfiguration) | ({
+        provider: 'azure';
+    } & AzureOpenAiEmbeddingsConfiguration) | ({
+        provider: 'dograh';
+    } & DograhEmbeddingsConfiguration) | null;
 };
 
 /**
@@ -318,9 +791,61 @@ export type CallDispositionCodes = {
 };
 
 /**
+ * CallDispositionOption
+ *
+ * One business outcome the terminal classifier may select.
+ */
+export type CallDispositionOption = {
+    /**
+     * Code
+     *
+     * Stable code recorded when this outcome is selected.
+     */
+    code: string;
+    /**
+     * Description
+     *
+     * Business criteria for selecting this disposition.
+     */
+    description: string;
+};
+
+/**
  * CallType
  */
 export type CallType = 'inbound' | 'outbound';
+
+/**
+ * Camb.ai
+ */
+export type CambTtsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'camb';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Camb.ai TTS model.
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * Camb.ai voice ID.
+     */
+    voice?: string;
+    /**
+     * Language
+     *
+     * BCP-47 language code.
+     */
+    language?: string;
+};
 
 /**
  * CampaignDefaultsResponse
@@ -567,6 +1092,76 @@ export type CampaignsResponse = {
 };
 
 /**
+ * Cartesia
+ */
+export type CartesiaSttConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'cartesia';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Cartesia STT model.
+     */
+    model?: string;
+    /**
+     * Language
+     *
+     * ISO 639-1 language code. ink-2 currently supports English only.
+     */
+    language?: string;
+};
+
+/**
+ * Cartesia
+ */
+export type CartesiaTtsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'cartesia';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Cartesia TTS model.
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * Cartesia voice UUID from your Cartesia dashboard.
+     */
+    voice?: string;
+    /**
+     * Speed
+     *
+     * Speed of the voice.
+     */
+    speed?: number;
+    /**
+     * Volume
+     *
+     * Volume multiplier for generated speech.
+     */
+    volume?: number;
+    /**
+     * Language
+     *
+     * Cartesia language code for TTS synthesis (e.g. 'en', 'tr', 'fr', 'de').
+     */
+    language?: string;
+};
+
+/**
  * ChunkResponseSchema
  *
  * Response schema for a document chunk.
@@ -727,7 +1322,7 @@ export type CloudonixConfigurationRequest = {
     /**
      * Domain Id
      *
-     * Cloudonix Domain ID
+     * Cloudonix domain name
      */
     domain_id: string;
     /**
@@ -736,40 +1331,80 @@ export type CloudonixConfigurationRequest = {
      * Cloudonix Voice Application name. The application's url is updated when inbound workflows are attached to numbers on this domain. If omitted, an application is auto-created on save and its name is stored on the configuration.
      */
     application_name?: string | null;
-    /**
-     * From Numbers
-     *
-     * List of Cloudonix phone numbers (optional)
-     */
-    from_numbers?: Array<string>;
 };
 
 /**
- * CloudonixConfigurationResponse
+ * ContextDestinationMappingConfig
  *
- * Response schema for Cloudonix configuration with masked sensitive fields.
+ * Resolve a transfer destination from gathered or initial context.
+ *
+ * Rules are evaluated in order. The first rule whose context value matches
+ * one of its routes wins; ``fallback_destination`` applies only when no rule
+ * matched. Destinations may be provider-native values or context templates.
  */
-export type CloudonixConfigurationResponse = {
+export type ContextDestinationMappingConfig = {
     /**
-     * Provider
+     * Rules
+     *
+     * Ordered routing rules evaluated top to bottom; first match wins.
      */
-    provider?: 'cloudonix';
+    rules?: Array<ContextDestinationRule> | null;
     /**
-     * Bearer Token
+     * Context Path
+     *
+     * Deprecated single-rule context path. Use rules instead; accepted for backward compatibility.
      */
-    bearer_token: string;
+    context_path?: string | null;
     /**
-     * Domain Id
+     * Routes
+     *
+     * Deprecated single-rule routes. Use rules instead; accepted for backward compatibility.
      */
-    domain_id: string;
+    routes?: Array<ContextDestinationRoute> | null;
     /**
-     * Application Name
+     * Fallback Destination
+     *
+     * Optional provider-native destination or context template used when no rule matched.
      */
-    application_name?: string | null;
+    fallback_destination?: string | null;
+};
+
+/**
+ * ContextDestinationRoute
+ *
+ * Map one context value to a transfer destination.
+ */
+export type ContextDestinationRoute = {
     /**
-     * From Numbers
+     * Context Value
+     *
+     * Context value that selects this destination.
      */
-    from_numbers: Array<string>;
+    context_value: string;
+    /**
+     * Destination
+     *
+     * VICIdial in-group, SIP endpoint, E.164 phone number, or context template used when this route matches.
+     */
+    destination: string;
+};
+
+/**
+ * ContextDestinationRule
+ *
+ * One context lookup with its value-to-destination routes.
+ */
+export type ContextDestinationRule = {
+    /**
+     * Context Path
+     *
+     * Context path used for routing. An unprefixed path checks gathered context first, then initial context; use initial_context.* or gathered_context.* to select one explicitly.
+     */
+    context_path: string;
+    /**
+     * Routes
+     */
+    routes: Array<ContextDestinationRoute>;
 };
 
 /**
@@ -1139,22 +1774,6 @@ export type CurrentUsageResponse = {
      */
     used_dograh_tokens: number;
     /**
-     * Quota Dograh Tokens
-     */
-    quota_dograh_tokens: number;
-    /**
-     * Percentage Used
-     */
-    percentage_used: number;
-    /**
-     * Next Refresh Date
-     */
-    next_refresh_date: string;
-    /**
-     * Quota Enabled
-     */
-    quota_enabled: boolean;
-    /**
      * Total Duration Seconds
      */
     total_duration_seconds: number;
@@ -1162,10 +1781,6 @@ export type CurrentUsageResponse = {
      * Used Amount Usd
      */
     used_amount_usd?: number | null;
-    /**
-     * Quota Amount Usd
-     */
-    quota_amount_usd?: number | null;
     /**
      * Currency
      */
@@ -1265,6 +1880,52 @@ export type DailyUsageItem = {
 };
 
 /**
+ * Deepgram
+ */
+export type DeepgramSttConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'deepgram';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Deepgram STT model.
+     */
+    model?: string;
+    /**
+     * Language
+     *
+     * Language code. 'multi' enables Nova-3 auto-detect and omits language hints for Flux multilingual auto-detect.
+     */
+    language?: string;
+};
+
+/**
+ * Deepgram
+ */
+export type DeepgramTtsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'deepgram';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Voice
+     *
+     * Deepgram voice ID (model is inferred from the 'aura-N' prefix).
+     */
+    voice?: string;
+};
+
+/**
  * DefaultConfigurationsResponse
  */
 export type DefaultConfigurationsResponse = {
@@ -1314,6 +1975,15 @@ export type DefaultConfigurationsResponse = {
     default_providers: {
         [key: string]: string;
     };
+    workflow_configurations: WorkflowConfigurationDefaults;
+    /**
+     * Default Call Dispositions
+     *
+     * Built-in suggestions for call-disposition extraction. They do not enable extraction until saved in workflow_configurations.call_dispositions.
+     */
+    default_call_dispositions: Array<CallDispositionOption>;
+    text_chat_inactivity_timeout_constraints: TextChatInactivityTimeoutConstraints;
+    widget_text_defaults: WidgetTexts;
 };
 
 /**
@@ -1344,6 +2014,32 @@ export type DisplayOptions = {
     hide?: {
         [key: string]: Array<unknown>;
     } | null;
+};
+
+/**
+ * DispositionCodesResponse
+ *
+ * Disposition codes selectable in org-wide run filters.
+ */
+export type DispositionCodesResponse = {
+    /**
+     * Codes
+     *
+     * Every code that can appear in `gathered_context.mapped_call_disposition`: the platform's built-in dispositions plus any custom mapped codes this organization's runs have produced.
+     */
+    codes: Array<string>;
+    /**
+     * End Task Reason Codes
+     *
+     * Disposition codes defined by Pipecat's EndTaskReason enum.
+     */
+    end_task_reason_codes: Array<string>;
+    /**
+     * System Codes
+     *
+     * Only the platform's built-in dispositions, without the custom codes this organization's runs have produced. This is the set a disposition mapping translates *from*, so the mapping editor seeds its rows here: `codes` also contains mapped codes, which are the targets of a mapping rather than its sources.
+     */
+    system_codes: Array<string>;
 };
 
 /**
@@ -1509,6 +2205,126 @@ export type DocumentUploadResponseSchema = {
 };
 
 /**
+ * Dograh
+ */
+export type DograhEmbeddingsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'dograh';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Dograh-managed embedding model.
+     */
+    model?: string;
+};
+
+/**
+ * Dograh
+ */
+export type DograhLlmService = {
+    /**
+     * Provider
+     */
+    provider?: 'dograh';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Dograh-hosted model tier.
+     */
+    model?: string;
+};
+
+/**
+ * DograhManagedAIModelConfiguration
+ */
+export type DograhManagedAiModelConfiguration = {
+    /**
+     * Api Key
+     */
+    api_key: string;
+    /**
+     * Voice
+     */
+    voice?: string;
+    /**
+     * Speed
+     */
+    speed?: number;
+    /**
+     * Language
+     */
+    language?: string;
+};
+
+/**
+ * Dograh
+ */
+export type DograhSttService = {
+    /**
+     * Provider
+     */
+    provider?: 'dograh';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Dograh STT tier.
+     */
+    model?: string;
+    /**
+     * Language
+     *
+     * Language code; use 'multi' for auto-detect.
+     */
+    language?: string;
+};
+
+/**
+ * Dograh
+ */
+export type DograhTtsService = {
+    /**
+     * Provider
+     */
+    provider?: 'dograh';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Dograh TTS tier.
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * Voice preset.
+     */
+    voice?: string;
+    /**
+     * Speed
+     *
+     * Speed of the voice.
+     */
+    speed?: number;
+};
+
+/**
  * DuplicateTemplateRequest
  */
 export type DuplicateTemplateRequest = {
@@ -1520,6 +2336,76 @@ export type DuplicateTemplateRequest = {
      * Workflow Name
      */
     workflow_name: string;
+};
+
+/**
+ * ElevenLabs
+ */
+export type ElevenlabsSttConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'elevenlabs';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * ElevenLabs realtime STT model.
+     */
+    model?: string;
+    /**
+     * Language
+     *
+     * ISO 639-1 language code for transcription. Use 'auto' to let ElevenLabs detect the language.
+     */
+    language?: string;
+    /**
+     * Base Url
+     *
+     * ElevenLabs API base URL. Override to use a Data Residency endpoint (e.g. https://api.eu.residency.elevenlabs.io) for GDPR / HIPAA / regional compliance.
+     */
+    base_url?: string;
+};
+
+/**
+ * ElevenLabs
+ */
+export type ElevenlabsTtsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'elevenlabs';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Voice
+     *
+     * ElevenLabs voice ID from your Voice Library.
+     */
+    voice?: string;
+    /**
+     * Speed
+     *
+     * Speed of the voice.
+     */
+    speed?: number;
+    /**
+     * Model
+     *
+     * ElevenLabs TTS model.
+     */
+    model?: string;
+    /**
+     * Base Url
+     *
+     * ElevenLabs API base URL. Override to use a Data Residency endpoint (e.g. https://api.eu.residency.elevenlabs.io) for GDPR / HIPAA / regional compliance.
+     */
+    base_url?: string;
 };
 
 /**
@@ -1538,6 +2424,7 @@ export type EmbedConfigResponse = {
     settings: {
         [key: string]: unknown;
     };
+    texts: WidgetTexts;
     /**
      * Theme
      */
@@ -1562,6 +2449,14 @@ export type EmbedConfigResponse = {
      * Auto Start
      */
     auto_start: boolean;
+    /**
+     * Turn Enabled
+     */
+    turn_enabled: boolean;
+    /**
+     * Force Turn Relay
+     */
+    force_turn_relay: boolean;
 };
 
 /**
@@ -1699,6 +2594,32 @@ export type EndCallToolDefinition = {
 };
 
 /**
+ * EndTextChatSessionRequest
+ */
+export type EndTextChatSessionRequest = {
+    /**
+     * Expected Revision
+     */
+    expected_revision?: number | null;
+};
+
+/**
+ * ExternalPBXFieldMapping
+ *
+ * Map one gathered-context value to a provider-native field.
+ */
+export type ExternalPbxFieldMapping = {
+    /**
+     * Context Path
+     */
+    context_path: string;
+    /**
+     * Destination Field
+     */
+    destination_field: string;
+};
+
+/**
  * FileDescriptor
  *
  * Descriptor for a single file in a batch upload request.
@@ -1759,6 +2680,280 @@ export type FolderResponse = {
 };
 
 /**
+ * Gladia
+ */
+export type GladiaSttConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'gladia';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Gladia STT model.
+     */
+    model?: string;
+    /**
+     * Language
+     *
+     * ISO 639-1 language code.
+     */
+    language?: string;
+};
+
+/**
+ * Google
+ */
+export type GoogleLlmService = {
+    /**
+     * Provider
+     */
+    provider?: 'google';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Gemini model on Google AI Studio (not Vertex).
+     */
+    model?: string;
+};
+
+/**
+ * Google Realtime
+ */
+export type GoogleRealtimeLlmConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'google_realtime';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Gemini Live model on Google AI Studio (not Vertex).
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * Voice the model speaks in.
+     */
+    voice?: string;
+    /**
+     * Language
+     *
+     * ISO 639-1 language code.
+     */
+    language?: string;
+    /**
+     * Temperature
+     *
+     * Sampling temperature for Gemini Live (0.0 to 2.0).
+     */
+    temperature?: number | null;
+};
+
+/**
+ * Google Cloud
+ */
+export type GoogleSttConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'google';
+    /**
+     * Api Key
+     *
+     * Not used for Google Cloud STT. Leave blank.
+     */
+    api_key?: string | Array<string> | null;
+    /**
+     * Model
+     *
+     * Google Cloud Speech-to-Text V2 recognition model.
+     */
+    model?: string;
+    /**
+     * Language
+     *
+     * Primary BCP-47 language code for recognition.
+     */
+    language?: string;
+    /**
+     * Location
+     *
+     * Google Cloud Speech-to-Text region (for example 'global' or 'us-central1').
+     */
+    location?: string;
+    /**
+     * Credentials
+     *
+     * Paste the entire Google Cloud service-account JSON. If omitted, the server falls back to Application Default Credentials (ADC).
+     */
+    credentials?: string | null;
+};
+
+/**
+ * Google Cloud
+ */
+export type GoogleTtsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'google';
+    /**
+     * Api Key
+     *
+     * Not used for Google Cloud TTS. Leave blank.
+     */
+    api_key?: string | Array<string> | null;
+    /**
+     * Model
+     *
+     * Google Cloud low-latency TTS engine. Dograh maps this to Pipecat's streaming Google TTS service for Chirp 3 HD and Journey voices.
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * Google Cloud voice name. Use a Chirp 3 HD or Journey voice for streaming TTS.
+     */
+    voice?: string;
+    /**
+     * Language
+     *
+     * BCP-47 language code for synthesis.
+     */
+    language?: string;
+    /**
+     * Speed
+     *
+     * Speech speed multiplier for Google streaming TTS.
+     */
+    speed?: number;
+    /**
+     * Location
+     *
+     * Optional Google Cloud regional Text-to-Speech endpoint (for example 'us-central1'). Leave blank to use the default endpoint.
+     */
+    location?: string | null;
+    /**
+     * Credentials
+     *
+     * Paste the entire Google Cloud service-account JSON. If omitted, the server falls back to Application Default Credentials (ADC).
+     */
+    credentials?: string | null;
+};
+
+/**
+ * Google Vertex
+ */
+export type GoogleVertexLlmConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'google_vertex';
+    /**
+     * Api Key
+     *
+     * Not used for Vertex AI — authentication is via the service account in `credentials` (or ADC). Leave blank.
+     */
+    api_key?: string | Array<string> | null;
+    /**
+     * Model
+     *
+     * Gemini model on Vertex AI.
+     */
+    model?: string;
+    /**
+     * Project Id
+     *
+     * Google Cloud project ID for Vertex AI.
+     */
+    project_id: string;
+    /**
+     * Location
+     *
+     * GCP region for the Vertex AI endpoint (e.g. 'global').
+     */
+    location?: string;
+    /**
+     * Credentials
+     *
+     * Paste the entire service-account JSON file contents. If omitted, falls back to Application Default Credentials (ADC).
+     */
+    credentials?: string | null;
+};
+
+/**
+ * Google Vertex Realtime
+ */
+export type GoogleVertexRealtimeLlmConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'google_vertex_realtime';
+    /**
+     * Api Key
+     *
+     * Not used for Vertex AI — authentication is via the service account in `credentials` (or ADC). Leave blank.
+     */
+    api_key?: string | Array<string> | null;
+    /**
+     * Model
+     *
+     * Vertex AI publisher/model identifier.
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * Voice the model speaks in.
+     */
+    voice?: string;
+    /**
+     * Language
+     *
+     * BCP-47 language code (e.g. 'en-US').
+     */
+    language?: string;
+    /**
+     * Temperature
+     *
+     * Sampling temperature for Gemini Live (0.0 to 2.0).
+     */
+    temperature?: number | null;
+    /**
+     * Project Id
+     *
+     * Google Cloud project ID for Vertex AI.
+     */
+    project_id: string;
+    /**
+     * Location
+     *
+     * GCP region for the Vertex AI endpoint (e.g. 'global').
+     */
+    location?: string;
+    /**
+     * Credentials
+     *
+     * Paste the entire service-account JSON file contents. If omitted, falls back to Application Default Credentials (ADC).
+     */
+    credentials?: string | null;
+};
+
+/**
  * GraphConstraints
  *
  * Per-node-type graph rules. WorkflowGraph enforces these at validation.
@@ -1780,6 +2975,60 @@ export type GraphConstraints = {
      * Max Outgoing
      */
     max_outgoing?: number | null;
+    /**
+     * Min Instances
+     */
+    min_instances?: number | null;
+    /**
+     * Max Instances
+     */
+    max_instances?: number | null;
+};
+
+/**
+ * Grok Realtime
+ */
+export type GrokRealtimeLlmConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'grok_realtime';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Grok realtime voice-agent model.
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * Voice the model speaks in.
+     */
+    voice?: string;
+};
+
+/**
+ * Groq
+ */
+export type GroqLlmService = {
+    /**
+     * Provider
+     */
+    provider?: 'groq';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Groq-hosted model identifier.
+     */
+    model?: string;
 };
 
 /**
@@ -1809,6 +3058,10 @@ export type HealthResponse = {
      */
     backend_api_endpoint: string;
     /**
+     * Tunnel Url
+     */
+    tunnel_url?: string | null;
+    /**
      * Deployment Mode
      */
     deployment_mode: string;
@@ -1824,6 +3077,18 @@ export type HealthResponse = {
      * Force Turn Relay
      */
     force_turn_relay: boolean;
+    /**
+     * Signup Enabled
+     */
+    signup_enabled: boolean;
+    /**
+     * Stack Project Id
+     */
+    stack_project_id?: string | null;
+    /**
+     * Stack Publishable Client Key
+     */
+    stack_publishable_client_key?: string | null;
 };
 
 /**
@@ -1894,6 +3159,14 @@ export type HttpApiConfig = {
      * Recording ID for an audio custom message.
      */
     customMessageRecordingId?: string | null;
+    /**
+     * Body Template
+     *
+     * Optional JSON body template for POST, PUT, and PATCH requests.
+     */
+    body_template?: {
+        [key: string]: unknown;
+    } | null;
 };
 
 /**
@@ -1921,12 +3194,145 @@ export type HttpApiToolDefinition = {
 };
 
 /**
+ * HttpTransferResolverConfig
+ *
+ * HTTP endpoint used to resolve transfer destination at call time.
+ */
+export type HttpTransferResolverConfig = {
+    /**
+     * Type
+     *
+     * Resolver type.
+     */
+    type?: 'http';
+    /**
+     * Url
+     *
+     * HTTP or HTTPS endpoint for transfer resolution.
+     */
+    url: string;
+    /**
+     * Headers
+     *
+     * Static headers to include with every resolver request.
+     */
+    headers?: {
+        [key: string]: string;
+    } | null;
+    /**
+     * Credential Uuid
+     *
+     * Reference to an external credential for resolver authentication.
+     */
+    credential_uuid?: string | null;
+    /**
+     * Timeout Ms
+     *
+     * Resolver request timeout in milliseconds.
+     */
+    timeout_ms?: number;
+    /**
+     * Wait Message
+     *
+     * Optional short message played while Dograh resolves routing.
+     */
+    wait_message?: string | null;
+    /**
+     * Parameters
+     *
+     * Parameters the model may provide when calling this transfer tool.
+     */
+    parameters?: Array<ToolParameter> | null;
+    /**
+     * Preset Parameters
+     *
+     * Parameters injected by Dograh from fixed values or workflow context templates.
+     */
+    preset_parameters?: Array<PresetToolParameter> | null;
+};
+
+/**
+ * Hugging Face
+ *
+ * Hosted Hugging Face Inference Providers API for usage-based inference.
+ */
+export type HuggingFaceLlmConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'huggingface';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Hugging Face chat-completion model identifier, optionally with provider suffix.
+     */
+    model?: string;
+    /**
+     * Base Url
+     *
+     * Hugging Face OpenAI-compatible chat-completions router base URL.
+     */
+    base_url?: string;
+    /**
+     * Bill To
+     *
+     * Optional Hugging Face organization or user to bill using X-HF-Bill-To.
+     */
+    bill_to?: string | null;
+};
+
+/**
+ * Hugging Face
+ *
+ * Hosted Hugging Face Inference Providers API for usage-based inference.
+ */
+export type HuggingFaceSttConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'huggingface';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Hugging Face ASR model identifier served through Inference Providers.
+     */
+    model?: string;
+    /**
+     * Base Url
+     *
+     * Hugging Face Inference Providers router base URL.
+     */
+    base_url?: string;
+    /**
+     * Bill To
+     *
+     * Optional Hugging Face organization or user to bill using X-HF-Bill-To.
+     */
+    bill_to?: string | null;
+    /**
+     * Return Timestamps
+     *
+     * Request timestamp chunks when supported by the selected provider/model.
+     */
+    return_timestamps?: boolean;
+};
+
+/**
  * ImpersonateRequest
  *
  * Request payload for superadmin impersonation.
  *
- * Either ``provider_user_id`` **or** ``user_id`` must be supplied. If both are
- * provided, ``provider_user_id`` takes precedence.
+ * ``provider_user_id``, ``user_id``, or ``email`` may be supplied. If more
+ * than one is provided, ``provider_user_id`` takes precedence, followed by
+ * ``user_id`` and then ``email``.
  */
 export type ImpersonateRequest = {
     /**
@@ -1937,6 +3343,10 @@ export type ImpersonateRequest = {
      * User Id
      */
     user_id?: number | null;
+    /**
+     * Email
+     */
+    email?: string | null;
 };
 
 /**
@@ -1991,6 +3401,11 @@ export type InitEmbedResponse = {
     config: {
         [key: string]: unknown;
     };
+    /**
+     * Widget Type
+     */
+    widget_type?: string;
+    chat_session?: PublicEmbedChatSessionResponse | null;
 };
 
 /**
@@ -2020,6 +3435,52 @@ export type InitiateCallRequest = {
 };
 
 /**
+ * Inworld
+ *
+ * Inworld AI streaming text-to-speech with built-in and cloned voices. Defaults to the Ashley system voice on inworld-tts-2.
+ */
+export type InworldTtsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'inworld';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Inworld TTS model.
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * Inworld voice ID. Use Ashley for the default warm English voice, or a workspace voice ID for a cloned/custom voice.
+     */
+    voice?: string;
+    /**
+     * Language
+     *
+     * BCP-47 language code for synthesis.
+     */
+    language?: string;
+    /**
+     * Speed
+     *
+     * Speech speed multiplier.
+     */
+    speed?: number;
+    /**
+     * Delivery Mode
+     *
+     * Controls stability versus expressiveness for inworld-tts-2 (STABLE, BALANCED, or CREATIVE).
+     */
+    delivery_mode?: 'STABLE' | 'BALANCED' | 'CREATIVE';
+};
+
+/**
  * ItemKind
  */
 export type ItemKind = 'node' | 'edge' | 'workflow';
@@ -2040,6 +3501,10 @@ export type LangfuseCredentialsRequest = {
      * Secret Key
      */
     secret_key: string;
+    /**
+     * Project Id
+     */
+    project_id: string;
 };
 
 /**
@@ -2058,6 +3523,10 @@ export type LangfuseCredentialsResponse = {
      * Secret Key
      */
     secret_key?: string;
+    /**
+     * Project Id
+     */
+    project_id?: string;
     /**
      * Configured
      */
@@ -2078,6 +3547,38 @@ export type LastCampaignSettingsResponse = {
 };
 
 /**
+ * LMNT
+ */
+export type LmntTtsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'lmnt';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * LMNT TTS model. 'aurora' is the general-purpose model; 'blizzard' targets more expressive, conversational speech.
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * LMNT voice ID. Use a stock voice name or a custom voice ID from your LMNT account.
+     */
+    voice?: string;
+    /**
+     * Language
+     *
+     * Language code for synthesis (e.g. 'en', 'es', 'fr', 'de', 'pt', 'zh', 'ko', 'hi').
+     */
+    language?: string;
+};
+
+/**
  * LoginRequest
  */
 export type LoginRequest = {
@@ -2092,21 +3593,158 @@ export type LoginRequest = {
 };
 
 /**
- * MPSCreditsResponse
+ * MPSBillingAccountResponse
  */
-export type MpsCreditsResponse = {
+export type MpsBillingAccountResponse = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Organization Id
+     */
+    organization_id: number;
+    /**
+     * Billing Mode
+     */
+    billing_mode: string;
+    /**
+     * Cached Balance Credits
+     */
+    cached_balance_credits: number;
+    /**
+     * Currency
+     */
+    currency: string;
+};
+
+/**
+ * MPSBillingCreditsResponse
+ */
+export type MpsBillingCreditsResponse = {
     /**
      * Total Credits Used
      */
-    total_credits_used: number;
+    total_credits_used?: number;
     /**
      * Remaining Credits
      */
-    remaining_credits: number;
+    remaining_credits?: number;
     /**
      * Total Quota
      */
-    total_quota: number;
+    total_quota?: number;
+    account?: MpsBillingAccountResponse | null;
+    /**
+     * Ledger Entries
+     */
+    ledger_entries?: Array<MpsCreditLedgerEntryResponse>;
+    /**
+     * Total Count
+     */
+    total_count?: number;
+    /**
+     * Page
+     */
+    page?: number;
+    /**
+     * Limit
+     */
+    limit?: number;
+    /**
+     * Total Pages
+     */
+    total_pages?: number;
+};
+
+/**
+ * MPSCreditLedgerEntryResponse
+ */
+export type MpsCreditLedgerEntryResponse = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Entry Type
+     */
+    entry_type: string;
+    /**
+     * Origin
+     */
+    origin?: string | null;
+    /**
+     * Credits Delta
+     */
+    credits_delta: number;
+    /**
+     * Balance After
+     */
+    balance_after: number;
+    /**
+     * Amount Minor
+     */
+    amount_minor?: number | null;
+    /**
+     * Amount Currency
+     */
+    amount_currency?: string | null;
+    /**
+     * Payment Order Id
+     */
+    payment_order_id?: number | null;
+    /**
+     * Metric Code
+     */
+    metric_code?: string | null;
+    /**
+     * Correlation Id
+     */
+    correlation_id?: string | null;
+    /**
+     * Aggregation Key
+     */
+    aggregation_key?: string | null;
+    /**
+     * Usage Event Id
+     */
+    usage_event_id?: number | null;
+    /**
+     * Workflow Run Id
+     */
+    workflow_run_id?: number | null;
+    /**
+     * Workflow Id
+     */
+    workflow_id?: number | null;
+    /**
+     * Billable Quantity
+     */
+    billable_quantity?: number | null;
+    /**
+     * Quantity Unit
+     */
+    quantity_unit?: string | null;
+    /**
+     * Metadata
+     */
+    metadata?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
+ * MPSCreditPurchaseUrlResponse
+ */
+export type MpsCreditPurchaseUrlResponse = {
+    /**
+     * Checkout Url
+     */
+    checkout_url: string;
 };
 
 /**
@@ -2206,6 +3844,122 @@ export type McpToolDefinition = {
 };
 
 /**
+ * MiniMaxLLMConfiguration
+ */
+export type MiniMaxLlmConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'minimax';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * MiniMax chat model.
+     */
+    model?: string;
+    /**
+     * Base Url
+     *
+     * MiniMax OpenAI-compatible API endpoint.
+     */
+    base_url?: string;
+    /**
+     * Temperature
+     *
+     * Sampling temperature. MiniMax requires > 0.
+     */
+    temperature?: number;
+};
+
+/**
+ * MiniMaxTTSConfiguration
+ */
+export type MiniMaxTtsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'minimax';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * MiniMax TTS model.
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * MiniMax voice ID.
+     */
+    voice?: string;
+    /**
+     * Base Url
+     *
+     * MiniMax TTS API endpoint (must include the /v1/t2a_v2 path). Defaults to the global endpoint; override with https://api.minimaxi.chat/v1/t2a_v2 (mainland China) or https://api-uw.minimax.io/v1/t2a_v2 (US-West).
+     */
+    base_url?: string;
+    /**
+     * Speed
+     *
+     * Speech speed (0.5 to 2.0).
+     */
+    speed?: number;
+    /**
+     * Group Id
+     *
+     * MiniMax Group ID (found in your MiniMax dashboard under Account → Group).
+     */
+    group_id: string;
+};
+
+/**
+ * ModelConfigurationMetricPrice
+ */
+export type ModelConfigurationMetricPrice = {
+    /**
+     * Metric Code
+     */
+    metric_code: string;
+    /**
+     * Display Name
+     */
+    display_name: string;
+    /**
+     * Unit
+     */
+    unit: string;
+    /**
+     * Price Per Minute
+     */
+    price_per_minute: number;
+    /**
+     * Currency
+     */
+    currency: string;
+    /**
+     * Rounding Policy
+     */
+    rounding_policy: string;
+};
+
+/**
+ * ModelConfigurationPricingResponse
+ *
+ * MPS-owned effective prices relevant to model configuration choices.
+ */
+export type ModelConfigurationPricingResponse = {
+    platform_usage?: ModelConfigurationMetricPrice | null;
+    dograh_model?: ModelConfigurationMetricPrice | null;
+};
+
+/**
  * MoveWorkflowToFolderRequest
  *
  * Move a workflow into a folder, or to "Uncategorized" when null.
@@ -2272,6 +4026,12 @@ export type NodeSpec = {
      * LLM-only guidance; omitted from the UI.
      */
     llm_hint?: string | null;
+    /**
+     * Docs Url
+     *
+     * Documentation URL shown in the node editor.
+     */
+    docs_url?: string | null;
     category: NodeCategory;
     /**
      * Icon
@@ -2307,6 +4067,368 @@ export type NodeTypesResponse = {
 };
 
 /**
+ * NumberInputOptions
+ *
+ * Renderer hints for numeric inputs.
+ */
+export type NumberInputOptions = {
+    /**
+     * Fractional
+     *
+     * Allow arbitrary fractional values via step='any'.
+     */
+    fractional?: boolean;
+};
+
+/**
+ * OnboardingState
+ *
+ * Per-user onboarding state, stored under UserConfigurationKey.ONBOARDING.
+ *
+ * Server-authoritative replacement for the browser-localStorage onboarding
+ * store, so the post-signup gate and one-time tooltips hold across devices.
+ */
+export type OnboardingState = {
+    /**
+     * Completed At
+     */
+    completed_at?: string | null;
+    /**
+     * Skipped
+     */
+    skipped?: boolean;
+    /**
+     * Seen Tooltips
+     */
+    seen_tooltips?: Array<string>;
+    /**
+     * Completed Actions
+     */
+    completed_actions?: Array<string>;
+};
+
+/**
+ * OnboardingStateUpdate
+ *
+ * Partial update merged into the stored state.
+ *
+ * Scalars overwrite when supplied; list entries are unioned into the stored
+ * lists, so concurrent updates (e.g. two tabs marking different tooltips)
+ * don't drop each other's items.
+ */
+export type OnboardingStateUpdate = {
+    /**
+     * Completed At
+     */
+    completed_at?: string | null;
+    /**
+     * Skipped
+     */
+    skipped?: boolean | null;
+    /**
+     * Seen Tooltips
+     */
+    seen_tooltips?: Array<string> | null;
+    /**
+     * Completed Actions
+     */
+    completed_actions?: Array<string> | null;
+};
+
+/**
+ * OpenAI
+ */
+export type OpenAiEmbeddingsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'openai';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * OpenAI embedding model.
+     */
+    model?: string;
+};
+
+/**
+ * OpenAI
+ */
+export type OpenAillmService = {
+    /**
+     * Provider
+     */
+    provider?: 'openai';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * OpenAI chat model to use.
+     */
+    model?: string;
+    /**
+     * Base Url
+     *
+     * Override only if using an OpenAI-compatible API (e.g. local LLM, proxy).
+     */
+    base_url?: string;
+};
+
+/**
+ * OpenAI Realtime
+ */
+export type OpenAiRealtimeLlmConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'openai_realtime';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * OpenAI realtime (speech-to-speech) model.
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * Voice the model speaks in.
+     */
+    voice?: string;
+    /**
+     * Language
+     *
+     * ISO 639-1 language code for input audio transcription (e.g. 'pt', 'es'). Improves transcription accuracy and latency. Leave unset to auto-detect.
+     */
+    language?: string | null;
+};
+
+/**
+ * OpenAI
+ */
+export type OpenAisttConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'openai';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * OpenAI transcription model.
+     */
+    model?: string;
+    /**
+     * Base Url
+     *
+     * Override only if using an OpenAI-compatible API (e.g. local STT, proxy).
+     */
+    base_url?: string;
+};
+
+/**
+ * OpenAI
+ */
+export type OpenAittsService = {
+    /**
+     * Provider
+     */
+    provider?: 'openai';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * OpenAI TTS model.
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * OpenAI TTS voice name.
+     */
+    voice?: string;
+    /**
+     * Base Url
+     *
+     * Override only if using an OpenAI-compatible API (e.g. local TTS, proxy).
+     */
+    base_url?: string;
+};
+
+/**
+ * Open Router
+ */
+export type OpenRouterEmbeddingsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'openrouter';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * OpenRouter-hosted embedding model slug.
+     */
+    model?: string;
+    /**
+     * Base Url
+     *
+     * Override only if proxying OpenRouter through your own gateway.
+     */
+    base_url?: string;
+};
+
+/**
+ * Open Router
+ */
+export type OpenRouterLlmConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'openrouter';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * OpenRouter model slug in 'vendor/model' form.
+     */
+    model?: string;
+    /**
+     * Base Url
+     *
+     * Override only if proxying OpenRouter through your own gateway.
+     */
+    base_url?: string;
+};
+
+/**
+ * OrganizationAIModelConfigurationResponse
+ */
+export type OrganizationAiModelConfigurationResponse = {
+    /**
+     * Configuration
+     */
+    configuration: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Effective Configuration
+     */
+    effective_configuration: {
+        [key: string]: unknown;
+    };
+    /**
+     * Source
+     */
+    source: 'organization_v2' | 'legacy_user_v1' | 'empty';
+};
+
+/**
+ * OrganizationAIModelConfigurationV2
+ */
+export type OrganizationAiModelConfigurationV2 = {
+    /**
+     * Version
+     */
+    version?: 2;
+    /**
+     * Mode
+     */
+    mode: 'dograh' | 'byok';
+    dograh?: DograhManagedAiModelConfiguration | null;
+    byok?: ByokaiModelConfiguration | null;
+};
+
+/**
+ * OrganizationContextResponse
+ */
+export type OrganizationContextResponse = {
+    /**
+     * Organization Id
+     */
+    organization_id?: number | null;
+    /**
+     * Organization Provider Id
+     */
+    organization_provider_id?: string | null;
+    model_services: OrganizationModelServicesContext;
+};
+
+/**
+ * OrganizationModelServicesContext
+ */
+export type OrganizationModelServicesContext = {
+    /**
+     * Config Source
+     */
+    config_source: 'organization_v2' | 'legacy_user_v1' | 'empty';
+    /**
+     * Has Model Configuration V2
+     */
+    has_model_configuration_v2: boolean;
+    /**
+     * Managed Service Version
+     */
+    managed_service_version?: number | null;
+    /**
+     * Uses Managed Service V2
+     */
+    uses_managed_service_v2: boolean;
+};
+
+/**
+ * OrganizationPreferences
+ */
+export type OrganizationPreferences = {
+    /**
+     * Test Phone Number
+     */
+    test_phone_number?: string | null;
+    /**
+     * Timezone
+     */
+    timezone?: string | null;
+    /**
+     * External Pbx Integrations Enabled
+     */
+    external_pbx_integrations_enabled?: boolean;
+    /**
+     * Disposition Mapping Enabled
+     */
+    disposition_mapping_enabled?: boolean;
+    /**
+     * Disposition Mapping
+     *
+     * Dograh disposition -> the code this organization uses for it. Applied when writing `gathered_context.mapped_call_disposition`, so webhooks, run filters, reports and external-PBX write-backs all read the organization's own vocabulary. Dispositions absent from the mapping pass through unchanged.
+     */
+    disposition_mapping?: {
+        [key: string]: string;
+    };
+};
+
+/**
  * PhoneNumberCreateRequest
  *
  * Create a new phone number under a telephony configuration.
@@ -2332,6 +4454,10 @@ export type PhoneNumberCreateRequest = {
      * Inbound Workflow Id
      */
     inbound_workflow_id?: number | null;
+    /**
+     * Telephony Trunk Id
+     */
+    telephony_trunk_id?: number | null;
     /**
      * Is Active
      */
@@ -2399,6 +4525,10 @@ export type PhoneNumberResponse = {
      */
     inbound_workflow_name?: string | null;
     /**
+     * Telephony Trunk Id
+     */
+    telephony_trunk_id?: number | null;
+    /**
      * Is Active
      */
     is_active: boolean;
@@ -2443,6 +4573,14 @@ export type PhoneNumberUpdateRequest = {
      */
     clear_inbound_workflow?: boolean;
     /**
+     * Telephony Trunk Id
+     */
+    telephony_trunk_id?: number | null;
+    /**
+     * Clear Trunk
+     */
+    clear_trunk?: boolean;
+    /**
      * Is Active
      */
     is_active?: boolean | null;
@@ -2486,40 +4624,6 @@ export type PlivoConfigurationRequest = {
      * Plivo Application ID. The application's answer_url is updated when inbound workflows are attached to numbers on this account. If omitted, an application is auto-created on save and its id is stored on the configuration.
      */
     application_id?: string | null;
-    /**
-     * From Numbers
-     *
-     * List of Plivo phone numbers
-     */
-    from_numbers?: Array<string>;
-};
-
-/**
- * PlivoConfigurationResponse
- *
- * Response schema for Plivo configuration with masked sensitive fields.
- */
-export type PlivoConfigurationResponse = {
-    /**
-     * Provider
-     */
-    provider?: 'plivo';
-    /**
-     * Auth Id
-     */
-    auth_id: string;
-    /**
-     * Auth Token
-     */
-    auth_token: string;
-    /**
-     * Application Id
-     */
-    application_id?: string | null;
-    /**
-     * From Numbers
-     */
-    from_numbers: Array<string>;
 };
 
 /**
@@ -2623,6 +4727,20 @@ export type ProcessDocumentRequestSchema = {
 };
 
 /**
+ * PropertyLayoutOptions
+ *
+ * Renderer layout hints for a property in the node editor.
+ */
+export type PropertyLayoutOptions = {
+    /**
+     * Column Span
+     *
+     * Number of columns to occupy in the editor's 12-column grid.
+     */
+    column_span?: number | null;
+};
+
+/**
  * PropertyOption
  *
  * An option in an `options` or `multi_options` dropdown.
@@ -2640,6 +4758,18 @@ export type PropertyOption = {
      * Description
      */
     description?: string | null;
+};
+
+/**
+ * PropertyRendererOptions
+ *
+ * Typed renderer metadata for node properties.
+ *
+ * Add new renderer behavior here instead of using free-form property metadata.
+ */
+export type PropertyRendererOptions = {
+    layout?: PropertyLayoutOptions | null;
+    number_input?: NumberInputOptions | null;
 };
 
 /**
@@ -2723,12 +4853,7 @@ export type PropertySpec = {
      * Editor
      */
     editor?: string | null;
-    /**
-     * Extra
-     */
-    extra?: {
-        [key: string]: unknown;
-    };
+    renderer_options?: PropertyRendererOptions | null;
 };
 
 /**
@@ -2740,6 +4865,33 @@ export type PropertySpec = {
  * `<PropertyInput>` switch and (where relevant) the SDK codegen template.
  */
 export type PropertyType = 'string' | 'number' | 'boolean' | 'options' | 'multi_options' | 'fixed_collection' | 'json' | 'tool_refs' | 'document_refs' | 'recording_ref' | 'credential_ref' | 'mention_textarea' | 'url';
+
+/**
+ * ProviderSetupChecklist
+ *
+ * A configuration's setup progress, as computed by its provider.
+ *
+ * ``ready_for_outbound`` is derived rather than reported independently so a
+ * provider cannot claim readiness while leaving a blocking step incomplete.
+ */
+export type ProviderSetupChecklist = {
+    /**
+     * Ready For Outbound
+     */
+    ready_for_outbound: boolean;
+    /**
+     * Outbound Blocked Reason
+     */
+    outbound_blocked_reason: string | null;
+    /**
+     * Steps
+     */
+    steps: Array<SetupStep>;
+    /**
+     * Docs Url
+     */
+    docs_url?: string | null;
+};
 
 /**
  * ProviderSyncStatus
@@ -2759,6 +4911,82 @@ export type ProviderSyncStatus = {
      * Message
      */
     message?: string | null;
+};
+
+/**
+ * PublicEmbedChatEndRequest
+ */
+export type PublicEmbedChatEndRequest = {
+    /**
+     * Expected Revision
+     */
+    expected_revision?: number | null;
+};
+
+/**
+ * PublicEmbedChatMessage
+ */
+export type PublicEmbedChatMessage = {
+    /**
+     * Text
+     */
+    text: string;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+};
+
+/**
+ * PublicEmbedChatMessageRequest
+ */
+export type PublicEmbedChatMessageRequest = {
+    /**
+     * Text
+     */
+    text: string;
+    /**
+     * Expected Revision
+     */
+    expected_revision?: number | null;
+};
+
+/**
+ * PublicEmbedChatSessionResponse
+ */
+export type PublicEmbedChatSessionResponse = {
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * State
+     */
+    state: string;
+    /**
+     * Is Completed
+     */
+    is_completed: boolean;
+    /**
+     * Turns
+     */
+    turns: Array<PublicEmbedChatTurn>;
+};
+
+/**
+ * PublicEmbedChatTurn
+ */
+export type PublicEmbedChatTurn = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Status
+     */
+    status: string;
+    user_message?: PublicEmbedChatMessage | null;
+    assistant_message?: PublicEmbedChatMessage | null;
 };
 
 /**
@@ -3035,6 +5263,44 @@ export type RewindTextChatSessionRequest = {
 };
 
 /**
+ * Rime
+ */
+export type RimeTtsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'rime';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Rime TTS model.
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * Rime voice ID.
+     */
+    voice?: string;
+    /**
+     * Speed
+     *
+     * Speech speed multiplier.
+     */
+    speed?: number;
+    /**
+     * Language
+     *
+     * ISO 639-1 language code.
+     */
+    language?: string;
+};
+
+/**
  * S3SignedUrlResponse
  */
 export type S3SignedUrlResponse = {
@@ -3046,6 +5312,156 @@ export type S3SignedUrlResponse = {
      * Expires In
      */
     expires_in: number;
+};
+
+/**
+ * SIPConnectivityDetails
+ *
+ * Provider-supplied SIP connection details displayed to customers.
+ */
+export type SipConnectivityDetails = {
+    /**
+     * Provider Display Name
+     */
+    provider_display_name: string;
+    /**
+     * Regions
+     */
+    regions: Array<SipRegionDetails>;
+};
+
+/**
+ * SIPRegionDetails
+ *
+ * Inbound and outbound SIP details for one provider region.
+ */
+export type SipRegionDetails = {
+    /**
+     * Region
+     */
+    region: string;
+    /**
+     * Inbound Transports
+     */
+    inbound_transports: Array<SipTransportDetails>;
+    /**
+     * Outbound Origin Ip
+     */
+    outbound_origin_ip: string;
+};
+
+/**
+ * SIPTransportDetails
+ *
+ * Connection details for one supported inbound SIP transport.
+ */
+export type SipTransportDetails = {
+    /**
+     * Transport
+     */
+    transport: string;
+    /**
+     * Hostname
+     */
+    hostname: string;
+    /**
+     * Port
+     */
+    port: number;
+    /**
+     * Uri
+     */
+    uri: string;
+};
+
+/**
+ * Sarvam
+ */
+export type SarvamLlmConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'sarvam';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Sarvam chat model.
+     */
+    model?: string;
+    /**
+     * Temperature
+     *
+     * Sampling temperature. Sarvam recommends 0.5 for balanced conversational responses.
+     */
+    temperature?: number;
+};
+
+/**
+ * Sarvam
+ */
+export type SarvamSttConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'sarvam';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Sarvam STT model. saarika:v2.5 transcribes in the spoken language; saaras:v3 is the recommended model with flexible output modes.
+     */
+    model?: string;
+    /**
+     * Language
+     *
+     * BCP-47 language code. Use unknown for automatic language detection.
+     */
+    language?: string;
+};
+
+/**
+ * Sarvam
+ */
+export type SarvamTtsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'sarvam';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Sarvam TTS model (voice list depends on this).
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * Sarvam voice name or custom voice ID.
+     */
+    voice?: string;
+    /**
+     * Language
+     *
+     * BCP-47 Indian-language code (e.g. hi-IN, en-IN).
+     */
+    language?: string;
+    /**
+     * Speed
+     *
+     * Speech speed multiplier.
+     */
+    speed?: number;
 };
 
 /**
@@ -3127,6 +5543,38 @@ export type ServiceKeyResponse = {
 };
 
 /**
+ * SetupStep
+ *
+ * One thing the customer must do before a configuration can carry calls.
+ *
+ * ``blocks_outbound`` separates "not done yet" from "outbound calls will
+ * fail". Inbound-only steps are reported so the checklist is complete
+ * without making them gate the Phone Call button.
+ */
+export type SetupStep = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Description
+     */
+    description: string;
+    /**
+     * Complete
+     */
+    complete: boolean;
+    /**
+     * Blocks Outbound
+     */
+    blocks_outbound?: boolean;
+};
+
+/**
  * SignupRequest
  */
 export type SignupRequest = {
@@ -3142,6 +5590,208 @@ export type SignupRequest = {
      * Name
      */
     name?: string | null;
+};
+
+/**
+ * Smallest AI
+ *
+ * Smallest AI ultralow-latency TTS (Waves) and STT (Pulse) APIs.
+ */
+export type SmallestAisttConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'smallest';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Smallest AI STT model. Supports 38 languages with real-time streaming.
+     */
+    model?: string;
+    /**
+     * Language
+     *
+     * ISO 639-1 language code for transcription.
+     */
+    language?: string;
+};
+
+/**
+ * Smallest AI
+ *
+ * Smallest AI ultralow-latency TTS (Waves) and STT (Pulse) APIs.
+ */
+export type SmallestAittsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'smallest';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Smallest AI TTS model. lightning_v3.1_pro is the premium pool (American, British, Indian accents); lightning_v3.1 is the standard pool with 217 voices across 12 languages.
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * Smallest AI voice ID. Available voices differ by model: lightning_v3.1 has a broad multilingual pool; lightning_v3.1_pro has premium American, British, and Indian accent voices (English + Hindi only).
+     */
+    voice?: string;
+    /**
+     * Language
+     *
+     * ISO 639-1 language code for synthesis.
+     */
+    language?: string;
+    /**
+     * Speed
+     *
+     * Speech speed multiplier (0.5 to 2.0).
+     */
+    speed?: number;
+};
+
+/**
+ * Local Models (Speaches)
+ *
+ * Self-hosted OpenAI-compatible local models. See the Speaches project for setup and supported backends.
+ */
+export type SpeachesLlmConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'speaches';
+    /**
+     * Api Key
+     *
+     * Usually not required for self-hosted endpoints. Leave blank unless your server enforces one.
+     */
+    api_key?: string | Array<string> | null;
+    /**
+     * Model
+     *
+     * Model name as exposed by your OpenAI-compatible server.
+     */
+    model?: string;
+    /**
+     * Base Url
+     *
+     * OpenAI-compatible endpoint (Ollama, vLLM, etc.).
+     */
+    base_url?: string;
+};
+
+/**
+ * Local Models (Speaches)
+ *
+ * Self-hosted OpenAI-compatible local models. See the Speaches project for setup and supported backends.
+ */
+export type SpeachesSttConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'speaches';
+    /**
+     * Api Key
+     *
+     * Usually not required for self-hosted STT. Leave blank unless enforced.
+     */
+    api_key?: string | Array<string> | null;
+    /**
+     * Model
+     *
+     * Whisper model identifier as served by your STT endpoint.
+     */
+    model?: string;
+    /**
+     * Language
+     *
+     * ISO 639-1 language code.
+     */
+    language?: string;
+    /**
+     * Base Url
+     *
+     * OpenAI-compatible STT endpoint (Speaches, etc.).
+     */
+    base_url?: string;
+};
+
+/**
+ * Local Models (Speaches)
+ *
+ * Self-hosted OpenAI-compatible local models. See the Speaches project for setup and supported backends.
+ */
+export type SpeachesTtsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'speaches';
+    /**
+     * Api Key
+     *
+     * Usually not required for self-hosted TTS. Leave blank unless enforced.
+     */
+    api_key?: string | Array<string> | null;
+    /**
+     * Model
+     *
+     * Model name as served by your TTS endpoint (e.g. Kokoro-FastAPI).
+     */
+    model?: string;
+    /**
+     * Voice
+     *
+     * Voice ID for the TTS engine.
+     */
+    voice?: string;
+    /**
+     * Base Url
+     *
+     * OpenAI-compatible TTS endpoint (Kokoro-FastAPI, etc.).
+     */
+    base_url?: string;
+    /**
+     * Speed
+     *
+     * Speech speed (0.25 to 4.0).
+     */
+    speed?: number;
+};
+
+/**
+ * Speechmatics
+ */
+export type SpeechmaticsSttConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'speechmatics';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Model
+     *
+     * Speechmatics operating point: 'standard' or 'enhanced'.
+     */
+    model?: string;
+    /**
+     * Language
+     *
+     * ISO 639-1 language code.
+     */
+    language?: string;
 };
 
 /**
@@ -3262,6 +5912,10 @@ export type TelephonyConfigWarningsResponse = {
      * Telnyx Missing Webhook Public Key Count
      */
     telnyx_missing_webhook_public_key_count: number;
+    /**
+     * Vonage Missing Signature Secret Count
+     */
+    vonage_missing_signature_secret_count: number;
 };
 
 /**
@@ -3322,15 +5976,41 @@ export type TelephonyConfigurationDetail = {
      */
     provider: string;
     /**
+     * Connectivity
+     */
+    connectivity?: 'api' | 'sip';
+    /**
      * Is Default Outbound
      */
     is_default_outbound: boolean;
+    /**
+     * Inactive
+     */
+    inactive?: boolean;
+    /**
+     * Inactive Since
+     */
+    inactive_since?: string | null;
+    /**
+     * Inactive Reason
+     */
+    inactive_reason?: string | null;
     /**
      * Credentials
      */
     credentials: {
         [key: string]: unknown;
     };
+    sip_connectivity?: SipConnectivityDetails | null;
+    setup_checklist?: ProviderSetupChecklist | null;
+    /**
+     * Supports Trunks
+     */
+    supports_trunks?: boolean;
+    /**
+     * Trunks
+     */
+    trunks?: Array<TrunkResponse>;
     /**
      * Created At
      */
@@ -3360,13 +6040,37 @@ export type TelephonyConfigurationListItem = {
      */
     provider: string;
     /**
+     * Connectivity
+     */
+    connectivity?: 'api' | 'sip';
+    /**
      * Is Default Outbound
      */
     is_default_outbound: boolean;
     /**
+     * Inactive
+     */
+    inactive?: boolean;
+    /**
+     * Inactive Since
+     */
+    inactive_since?: string | null;
+    /**
+     * Inactive Reason
+     */
+    inactive_reason?: string | null;
+    /**
      * Phone Number Count
      */
     phone_number_count?: number;
+    /**
+     * Is Ready For Outbound
+     */
+    is_ready_for_outbound?: boolean;
+    /**
+     * Outbound Blocked Reason
+     */
+    outbound_blocked_reason?: string | null;
     /**
      * Created At
      */
@@ -3385,25 +6089,6 @@ export type TelephonyConfigurationListResponse = {
      * Configurations
      */
     configurations: Array<TelephonyConfigurationListItem>;
-};
-
-/**
- * TelephonyConfigurationResponse
- *
- * Top-level telephony configuration response.
- *
- * Keeps the per-provider field shape that the UI client depends on. When
- * the UI moves to metadata-driven forms, this can be replaced with a
- * flat discriminated union.
- */
-export type TelephonyConfigurationResponse = {
-    twilio?: TwilioConfigurationResponse | null;
-    plivo?: PlivoConfigurationResponse | null;
-    vonage?: VonageConfigurationResponse | null;
-    vobiz?: VobizConfigurationResponse | null;
-    cloudonix?: CloudonixConfigurationResponse | null;
-    ari?: AriConfigurationResponse | null;
-    telnyx?: TelnyxConfigurationResponse | null;
 };
 
 /**
@@ -3451,6 +6136,10 @@ export type TelephonyProviderMetadata = {
      */
     display_name: string;
     /**
+     * Connectivity
+     */
+    connectivity?: 'api' | 'sip';
+    /**
      * Fields
      */
     fields: Array<TelephonyProviderUiField>;
@@ -3458,6 +6147,20 @@ export type TelephonyProviderMetadata = {
      * Docs Url
      */
     docs_url?: string | null;
+};
+
+/**
+ * TelephonyProviderUICondition
+ */
+export type TelephonyProviderUiCondition = {
+    /**
+     * Field
+     */
+    field: string;
+    /**
+     * Equals
+     */
+    equals: unknown;
 };
 
 /**
@@ -3494,6 +6197,29 @@ export type TelephonyProviderUiField = {
      * Placeholder
      */
     placeholder?: string | null;
+    /**
+     * Options
+     */
+    options?: Array<TelephonyProviderUiOption> | null;
+    visible_when?: TelephonyProviderUiCondition | null;
+    /**
+     * Section
+     */
+    section?: string | null;
+};
+
+/**
+ * TelephonyProviderUIOption
+ */
+export type TelephonyProviderUiOption = {
+    /**
+     * Value
+     */
+    value: string;
+    /**
+     * Label
+     */
+    label: string;
 };
 
 /**
@@ -3536,40 +6262,26 @@ export type TelnyxConfigurationRequest = {
      * Webhook public key from Mission Control Portal → Keys & Credentials → Public Key. Used to verify Telnyx webhook signatures.
      */
     webhook_public_key?: string | null;
-    /**
-     * From Numbers
-     *
-     * List of Telnyx phone numbers
-     */
-    from_numbers?: Array<string>;
 };
 
 /**
- * TelnyxConfigurationResponse
+ * TextChatInactivityTimeoutConstraints
  *
- * Response schema for Telnyx configuration with masked sensitive fields.
+ * Backend-owned timeout metadata consumed by generated API clients.
  */
-export type TelnyxConfigurationResponse = {
+export type TextChatInactivityTimeoutConstraints = {
     /**
-     * Provider
+     * Default Seconds
      */
-    provider?: 'telnyx';
+    default_seconds?: number;
     /**
-     * Api Key
+     * Minimum Seconds
      */
-    api_key: string;
+    minimum_seconds?: number;
     /**
-     * Connection Id
+     * Maximum Seconds
      */
-    connection_id?: string | null;
-    /**
-     * Webhook Public Key
-     */
-    webhook_public_key?: string | null;
-    /**
-     * From Numbers
-     */
-    from_numbers: Array<string>;
+    maximum_seconds?: number;
 };
 
 /**
@@ -3696,17 +6408,105 @@ export type ToolResponse = {
 };
 
 /**
+ * ToolTestRequest
+ *
+ * Request body for testing an HTTP API tool outside a live call.
+ */
+export type ToolTestRequest = {
+    /**
+     * Llm Params
+     *
+     * Values for parameters normally supplied by the model.
+     */
+    llm_params?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Preset Params
+     *
+     * Resolved values for parameters normally supplied from presets.
+     */
+    preset_params?: {
+        [key: string]: unknown;
+    };
+};
+
+/**
+ * ToolTestResponse
+ *
+ * Result of testing an HTTP API tool.
+ */
+export type ToolTestResponse = {
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Status Code
+     */
+    status_code?: number | null;
+    /**
+     * Data
+     */
+    data?: unknown | null;
+    /**
+     * Error
+     */
+    error?: string | null;
+    /**
+     * Hint
+     */
+    hint?: string | null;
+    /**
+     * Request Method
+     */
+    request_method: string;
+    /**
+     * Request Url
+     */
+    request_url: string;
+    /**
+     * Request Headers
+     */
+    request_headers?: {
+        [key: string]: string;
+    };
+    /**
+     * Request Body
+     */
+    request_body?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Request Params
+     */
+    request_params?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Duration Ms
+     */
+    duration_ms: number;
+};
+
+/**
  * TransferCallConfig
  *
  * Configuration for Transfer Call tools.
  */
 export type TransferCallConfig = {
     /**
+     * Destination Source
+     *
+     * Whether the destination is static/template, resolved by HTTP, or selected by ordered gathered/initial-context mapping rules.
+     */
+    destination_source?: 'static' | 'dynamic' | 'context_mapping';
+    /**
      * Destination
      *
-     * Phone number or SIP endpoint to transfer the call to, e.g. +1234567890 or PJSIP/1234.
+     * Phone number, SIP endpoint, or template to transfer the call to, e.g. +1234567890, PJSIP/1234, or {{initial_context.transfer_destination}}.
      */
-    destination: string;
+    destination?: string;
     /**
      * Messagetype
      *
@@ -3731,6 +6531,26 @@ export type TransferCallConfig = {
      * Maximum seconds to wait for the destination to answer.
      */
     timeout?: number;
+    /**
+     * Call Disposition
+     *
+     * Optional disposition to record after a successful transfer. When omitted, Dograh records its provider-specific transfer default.
+     */
+    call_disposition?: string | null;
+    /**
+     * Parameters
+     *
+     * Parameters the model may provide when calling this transfer tool, for example state, department, or transfer reason.
+     */
+    parameters?: Array<ToolParameter> | null;
+    /**
+     * Optional resolver that determines transfer routing at call time.
+     */
+    resolver?: HttpTransferResolverConfig | null;
+    /**
+     * Optional ordered context-to-destination routing rules.
+     */
+    context_mapping?: ContextDestinationMappingConfig | null;
 };
 
 /**
@@ -3777,6 +6597,10 @@ export type TriggerCallRequest = {
      * Telephony Configuration Id
      */
     telephony_configuration_id?: number | null;
+    /**
+     * From Phone Number Id
+     */
+    from_phone_number_id?: number | null;
 };
 
 /**
@@ -3797,6 +6621,100 @@ export type TriggerCallResponse = {
      * Workflow Run Name
      */
     workflow_run_name: string;
+};
+
+/**
+ * TrunkCreateRequest
+ */
+export type TrunkCreateRequest = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Enabled
+     */
+    enabled?: boolean;
+    /**
+     * Settings
+     */
+    settings?: {
+        [key: string]: unknown;
+    };
+};
+
+/**
+ * TrunkListResponse
+ */
+export type TrunkListResponse = {
+    /**
+     * Trunks
+     */
+    trunks: Array<TrunkResponse>;
+};
+
+/**
+ * TrunkResponse
+ *
+ * One carrier path on a configuration.
+ *
+ * ``settings`` is the provider's own trunk schema (validated on write against
+ * ``ProviderSpec.trunk_settings_cls``). The provider-side identifier is
+ * Dograh's bookkeeping and is not exposed.
+ */
+export type TrunkResponse = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
+     * Settings
+     */
+    settings: {
+        [key: string]: unknown;
+    };
+    /**
+     * Phone Number Count
+     */
+    phone_number_count?: number;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * TrunkUpdateRequest
+ *
+ * Partial update — omitted fields keep their stored value.
+ */
+export type TrunkUpdateRequest = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Enabled
+     */
+    enabled?: boolean | null;
+    /**
+     * Settings
+     */
+    settings?: {
+        [key: string]: unknown;
+    } | null;
 };
 
 /**
@@ -3846,35 +6764,37 @@ export type TwilioConfigurationRequest = {
      */
     auth_token: string;
     /**
-     * From Numbers
+     * Amd Enabled
      *
-     * List of Twilio phone numbers
+     * Detect whether outbound calls are answered by a person or machine. Twilio may bill AMD as an additional per-call feature.
      */
-    from_numbers?: Array<string>;
+    amd_enabled?: boolean;
 };
 
 /**
- * TwilioConfigurationResponse
- *
- * Response schema for Twilio configuration with masked sensitive fields.
+ * Ultravox Realtime
  */
-export type TwilioConfigurationResponse = {
+export type UltravoxRealtimeLlmConfiguration = {
     /**
      * Provider
      */
-    provider?: 'twilio';
+    provider?: 'ultravox_realtime';
     /**
-     * Account Sid
+     * Api Key
      */
-    account_sid: string;
+    api_key: string | Array<string>;
     /**
-     * Auth Token
+     * Model
+     *
+     * Ultravox realtime voice-agent model.
      */
-    auth_token: string;
+    model?: string;
     /**
-     * From Numbers
+     * Voice
+     *
+     * Ultravox voice name or voice ID.
      */
-    from_numbers: Array<string>;
+    voice?: string;
 };
 
 /**
@@ -3989,12 +6909,7 @@ export type UpdateWorkflowRequest = {
     template_context_variables?: {
         [key: string]: unknown;
     } | null;
-    /**
-     * Workflow Configurations
-     */
-    workflow_configurations?: {
-        [key: string]: unknown;
-    } | null;
+    workflow_configurations?: WorkflowConfigurationDefaults | null;
 };
 
 /**
@@ -4164,6 +7079,88 @@ export type ValidationError = {
 };
 
 /**
+ * VicidialAgentAPIConfiguration
+ *
+ * VICIdial remote-agent call-control API configuration.
+ */
+export type VicidialAgentApiConfiguration = {
+    /**
+     * Url
+     *
+     * Full URL to agc/api.php
+     */
+    url: string;
+    /**
+     * Username
+     *
+     * VICIdial agent API user
+     */
+    username: string;
+    /**
+     * Password
+     *
+     * VICIdial agent API password
+     */
+    password: string;
+    /**
+     * Source
+     *
+     * VICIdial API source tag
+     */
+    source?: string;
+};
+
+/**
+ * VicidialExternalPBXConfiguration
+ *
+ * External-PBX configuration used by the VICIdial strategy adapter.
+ */
+export type VicidialExternalPbxConfiguration = {
+    /**
+     * Type
+     */
+    type?: 'vicidial';
+    agent_api: VicidialAgentApiConfiguration;
+    non_agent_api?: VicidialNonAgentApiConfiguration | null;
+    /**
+     * Timeout Seconds
+     */
+    timeout_seconds?: number;
+};
+
+/**
+ * VicidialNonAgentAPIConfiguration
+ *
+ * Optional VICIdial non-agent API configuration for lead updates.
+ */
+export type VicidialNonAgentApiConfiguration = {
+    /**
+     * Url
+     *
+     * Full non_agent_api.php URL
+     */
+    url?: string | null;
+    /**
+     * Username
+     *
+     * Non-agent API user
+     */
+    username?: string | null;
+    /**
+     * Password
+     *
+     * Non-agent API password
+     */
+    password?: string | null;
+    /**
+     * Source
+     *
+     * Non-agent API source tag
+     */
+    source?: string;
+};
+
+/**
  * VobizConfigurationRequest
  *
  * Request schema for Vobiz configuration.
@@ -4191,40 +7188,26 @@ export type VobizConfigurationRequest = {
      * Vobiz Application ID. The application's answer_url is updated when inbound workflows are attached to numbers on this account. If omitted, an application is auto-created on save and its id is stored on the configuration.
      */
     application_id?: string | null;
-    /**
-     * From Numbers
-     *
-     * List of Vobiz phone numbers (E.164 without + prefix)
-     */
-    from_numbers?: Array<string>;
 };
 
 /**
- * VobizConfigurationResponse
+ * VoiceFacets
  *
- * Response schema for Vobiz configuration with masked sensitive fields.
+ * Distinct selector values across a provider's full voice catalog.
  */
-export type VobizConfigurationResponse = {
+export type VoiceFacets = {
     /**
-     * Provider
+     * Genders
      */
-    provider?: 'vobiz';
+    genders?: Array<string>;
     /**
-     * Auth Id
+     * Accents
      */
-    auth_id: string;
+    accents?: Array<string>;
     /**
-     * Auth Token
+     * Languages
      */
-    auth_token: string;
-    /**
-     * Application Id
-     */
-    application_id?: string | null;
-    /**
-     * From Numbers
-     */
-    from_numbers: Array<string>;
+    languages?: Array<string>;
 };
 
 /**
@@ -4273,6 +7256,7 @@ export type VoicesResponse = {
      * Voices
      */
     voices: Array<VoiceInfo>;
+    facets?: VoiceFacets | null;
 };
 
 /**
@@ -4310,43 +7294,11 @@ export type VonageConfigurationRequest = {
      */
     private_key: string;
     /**
-     * From Numbers
+     * Signature Secret
      *
-     * List of Vonage phone numbers (without + prefix)
+     * Vonage signature secret used to verify signed webhooks
      */
-    from_numbers?: Array<string>;
-};
-
-/**
- * VonageConfigurationResponse
- *
- * Response schema for Vonage configuration with masked sensitive fields.
- */
-export type VonageConfigurationResponse = {
-    /**
-     * Provider
-     */
-    provider?: 'vonage';
-    /**
-     * Application Id
-     */
-    application_id: string;
-    /**
-     * Api Key
-     */
-    api_key: string;
-    /**
-     * Api Secret
-     */
-    api_secret: string;
-    /**
-     * Private Key
-     */
-    private_key: string;
-    /**
-     * From Numbers
-     */
-    from_numbers: Array<string>;
+    signature_secret?: string | null;
 };
 
 /**
@@ -4355,6 +7307,168 @@ export type VonageConfigurationResponse = {
  * Webhook credential authentication types
  */
 export type WebhookCredentialType = 'none' | 'api_key' | 'bearer_token' | 'basic_auth' | 'custom_header';
+
+/**
+ * WidgetTexts
+ *
+ * Every visitor-facing string the embed widget can render.
+ */
+export type WidgetTexts = {
+    /**
+     * Endchattext
+     */
+    endChatText?: string;
+    /**
+     * Endchatconfirmtext
+     */
+    endChatConfirmText?: string;
+    /**
+     * Endchatcanceltext
+     */
+    endChatCancelText?: string;
+    /**
+     * Endingchattext
+     */
+    endingChatText?: string;
+    /**
+     * Conversationendedtext
+     */
+    conversationEndedText?: string;
+    /**
+     * Startnewchattext
+     */
+    startNewChatText?: string;
+    /**
+     * Chatretrytext
+     */
+    chatRetryText?: string;
+    /**
+     * Chatinputplaceholder
+     */
+    chatInputPlaceholder?: string;
+    /**
+     * Sendmessagelabel
+     */
+    sendMessageLabel?: string;
+    /**
+     * Closechatlabel
+     */
+    closeChatLabel?: string;
+    /**
+     * Voiceconnectingtext
+     */
+    voiceConnectingText?: string;
+    /**
+     * Voiceendcalltext
+     */
+    voiceEndCallText?: string;
+    /**
+     * Voiceretrytext
+     */
+    voiceRetryText?: string;
+    /**
+     * Voicereadytitle
+     */
+    voiceReadyTitle?: string;
+    /**
+     * Voiceconnectingsubtext
+     */
+    voiceConnectingSubtext?: string;
+    /**
+     * Voiceconnectedtitle
+     */
+    voiceConnectedTitle?: string;
+    /**
+     * Voiceconnectedsubtext
+     */
+    voiceConnectedSubtext?: string;
+    /**
+     * Voicecallendedtitle
+     */
+    voiceCallEndedTitle?: string;
+    /**
+     * Voicecallendedsubtext
+     */
+    voiceCallEndedSubtext?: string;
+    /**
+     * Voiceconnectionfailedtitle
+     */
+    voiceConnectionFailedTitle?: string;
+    /**
+     * Voiceconnectionfailedsubtext
+     */
+    voiceConnectionFailedSubtext?: string;
+    /**
+     * Voiceconnectionlosttitle
+     */
+    voiceConnectionLostTitle?: string;
+    /**
+     * Voiceconnectionlostsubtext
+     */
+    voiceConnectionLostSubtext?: string;
+};
+
+/**
+ * WorkflowConfigurationDefaults
+ */
+export type WorkflowConfigurationDefaults = {
+    ambient_noise_configuration?: AmbientNoiseConfigurationDefaults;
+    /**
+     * Max Call Duration
+     */
+    max_call_duration?: number;
+    /**
+     * Max User Idle Timeout
+     */
+    max_user_idle_timeout?: number;
+    /**
+     * Smart Turn Stop Secs
+     */
+    smart_turn_stop_secs?: number;
+    /**
+     * Turn Start Strategy
+     */
+    turn_start_strategy?: 'default' | 'min_words' | 'provisional_vad';
+    /**
+     * Turn Start Min Words
+     */
+    turn_start_min_words?: number;
+    /**
+     * Provisional Vad Pause Secs
+     */
+    provisional_vad_pause_secs?: number;
+    /**
+     * Turn Stop Strategy
+     */
+    turn_stop_strategy?: 'transcription' | 'turn_analyzer';
+    /**
+     * Dictionary
+     */
+    dictionary?: string;
+    /**
+     * Context Compaction Enabled
+     */
+    context_compaction_enabled?: boolean;
+    /**
+     * Call Dispositions
+     *
+     * Allowed business outcomes for terminal call classification. Each entry defines the exact stored code and the criteria for selecting it.
+     */
+    call_dispositions?: Array<CallDispositionOption>;
+    /**
+     * Text Chat Inactivity Timeout Seconds
+     */
+    text_chat_inactivity_timeout_seconds?: number;
+    /**
+     * External Pbx Field Mappings
+     */
+    external_pbx_field_mappings?: Array<ExternalPbxFieldMapping>;
+    /**
+     * External Pbx Lead Headers
+     */
+    external_pbx_lead_headers?: Array<string>;
+    [key: string]: unknown;
+};
 
 /**
  * WorkflowCountResponse
@@ -4577,6 +7691,14 @@ export type WorkflowRunResponseSchema = {
      */
     recording_url: string | null;
     /**
+     * User Recording Url
+     */
+    user_recording_url?: string | null;
+    /**
+     * Bot Recording Url
+     */
+    bot_recording_url?: string | null;
+    /**
      * Transcript Public Url
      */
     transcript_public_url?: string | null;
@@ -4584,6 +7706,14 @@ export type WorkflowRunResponseSchema = {
      * Recording Public Url
      */
     recording_public_url?: string | null;
+    /**
+     * User Recording Public Url
+     */
+    user_recording_public_url?: string | null;
+    /**
+     * Bot Recording Public Url
+     */
+    bot_recording_public_url?: string | null;
     /**
      * Public Access Token
      */
@@ -4744,6 +7874,14 @@ export type WorkflowRunUsageResponse = {
      */
     transcript_url?: string | null;
     /**
+     * User Recording Url
+     */
+    user_recording_url?: string | null;
+    /**
+     * Bot Recording Url
+     */
+    bot_recording_url?: string | null;
+    /**
      * Recording Public Url
      */
     recording_public_url?: string | null;
@@ -4751,6 +7889,14 @@ export type WorkflowRunUsageResponse = {
      * Transcript Public Url
      */
     transcript_public_url?: string | null;
+    /**
+     * User Recording Public Url
+     */
+    user_recording_public_url?: string | null;
+    /**
+     * Bot Recording Public Url
+     */
+    bot_recording_public_url?: string | null;
     /**
      * Public Access Token
      */
@@ -4919,6 +8065,32 @@ export type WorkflowVersionResponse = {
     } | null;
 };
 
+/**
+ * xAI
+ */
+export type XaittsConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'xai';
+    /**
+     * Api Key
+     */
+    api_key: string | Array<string>;
+    /**
+     * Voice
+     *
+     * xAI voice persona.
+     */
+    voice?: string;
+    /**
+     * Language
+     *
+     * BCP-47 language code for synthesis (e.g. 'en', 'fr', 'de'), or 'auto' for automatic language detection.
+     */
+    language?: string;
+};
+
 export type InitiateCallApiV1TelephonyInitiateCallPostData = {
     body: InitiateCallRequest;
     headers?: {
@@ -5056,6 +8228,38 @@ export type CompleteTransferFunctionCallApiV1TelephonyTransferResultTransferIdPo
 export type CompleteTransferFunctionCallApiV1TelephonyTransferResultTransferIdPostError = CompleteTransferFunctionCallApiV1TelephonyTransferResultTransferIdPostErrors[keyof CompleteTransferFunctionCallApiV1TelephonyTransferResultTransferIdPostErrors];
 
 export type CompleteTransferFunctionCallApiV1TelephonyTransferResultTransferIdPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type HandleCloudonixTransferResultApiV1TelephonyCloudonixTransferResultTransferIdPostData = {
+    body?: never;
+    path: {
+        /**
+         * Transfer Id
+         */
+        transfer_id: string;
+    };
+    query?: never;
+    url: '/api/v1/telephony/cloudonix/transfer-result/{transfer_id}';
+};
+
+export type HandleCloudonixTransferResultApiV1TelephonyCloudonixTransferResultTransferIdPostErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type HandleCloudonixTransferResultApiV1TelephonyCloudonixTransferResultTransferIdPostError = HandleCloudonixTransferResultApiV1TelephonyCloudonixTransferResultTransferIdPostErrors[keyof HandleCloudonixTransferResultApiV1TelephonyCloudonixTransferResultTransferIdPostErrors];
+
+export type HandleCloudonixTransferResultApiV1TelephonyCloudonixTransferResultTransferIdPostResponses = {
     /**
      * Successful Response
      */
@@ -5277,16 +8481,6 @@ export type HandleTwilioStatusCallbackApiV1TelephonyTwilioStatusCallbackWorkflow
 
 export type HandleVobizHangupCallbackApiV1TelephonyVobizHangupCallbackWorkflowRunIdPostData = {
     body?: never;
-    headers?: {
-        /**
-         * X-Vobiz-Signature
-         */
-        'x-vobiz-signature'?: string | null;
-        /**
-         * X-Vobiz-Timestamp
-         */
-        'x-vobiz-timestamp'?: string | null;
-    };
     path: {
         /**
          * Workflow Run Id
@@ -5319,16 +8513,6 @@ export type HandleVobizHangupCallbackApiV1TelephonyVobizHangupCallbackWorkflowRu
 
 export type HandleVobizRingCallbackApiV1TelephonyVobizRingCallbackWorkflowRunIdPostData = {
     body?: never;
-    headers?: {
-        /**
-         * X-Vobiz-Signature
-         */
-        'x-vobiz-signature'?: string | null;
-        /**
-         * X-Vobiz-Timestamp
-         */
-        'x-vobiz-timestamp'?: string | null;
-    };
     path: {
         /**
          * Workflow Run Id
@@ -5361,16 +8545,6 @@ export type HandleVobizRingCallbackApiV1TelephonyVobizRingCallbackWorkflowRunIdP
 
 export type HandleVobizHangupCallbackByWorkflowApiV1TelephonyVobizHangupCallbackWorkflowWorkflowIdPostData = {
     body?: never;
-    headers?: {
-        /**
-         * X-Vobiz-Signature
-         */
-        'x-vobiz-signature'?: string | null;
-        /**
-         * X-Vobiz-Timestamp
-         */
-        'x-vobiz-timestamp'?: string | null;
-    };
     path: {
         /**
          * Workflow Id
@@ -5427,6 +8601,27 @@ export type HandleVonageEventsApiV1TelephonyVonageEventsWorkflowRunIdPostErrors 
 export type HandleVonageEventsApiV1TelephonyVonageEventsWorkflowRunIdPostError = HandleVonageEventsApiV1TelephonyVonageEventsWorkflowRunIdPostErrors[keyof HandleVonageEventsApiV1TelephonyVonageEventsWorkflowRunIdPostErrors];
 
 export type HandleVonageEventsApiV1TelephonyVonageEventsWorkflowRunIdPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type HandleVonageEventsWithoutRunApiV1TelephonyVonageEventsPostData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/telephony/vonage/events';
+};
+
+export type HandleVonageEventsWithoutRunApiV1TelephonyVonageEventsPostErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+};
+
+export type HandleVonageEventsWithoutRunApiV1TelephonyVonageEventsPostResponses = {
     /**
      * Successful Response
      */
@@ -6181,10 +9376,14 @@ export type GetWorkflowRunsApiV1WorkflowWorkflowIdRunsGetData = {
     query?: {
         /**
          * Page
+         *
+         * Page number (starts from 1)
          */
         page?: number;
         /**
          * Limit
+         *
+         * Number of items per page
          */
         limit?: number;
         /**
@@ -6621,6 +9820,54 @@ export type AppendTextChatMessageApiV1WorkflowWorkflowIdTextChatSessionsRunIdMes
 
 export type AppendTextChatMessageApiV1WorkflowWorkflowIdTextChatSessionsRunIdMessagesPostResponse = AppendTextChatMessageApiV1WorkflowWorkflowIdTextChatSessionsRunIdMessagesPostResponses[keyof AppendTextChatMessageApiV1WorkflowWorkflowIdTextChatSessionsRunIdMessagesPostResponses];
 
+export type EndTextChatSessionApiV1WorkflowWorkflowIdTextChatSessionsRunIdEndPostData = {
+    body: EndTextChatSessionRequest;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Workflow Id
+         */
+        workflow_id: number;
+        /**
+         * Run Id
+         */
+        run_id: number;
+    };
+    query?: never;
+    url: '/api/v1/workflow/{workflow_id}/text-chat/sessions/{run_id}/end';
+};
+
+export type EndTextChatSessionApiV1WorkflowWorkflowIdTextChatSessionsRunIdEndPostErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type EndTextChatSessionApiV1WorkflowWorkflowIdTextChatSessionsRunIdEndPostError = EndTextChatSessionApiV1WorkflowWorkflowIdTextChatSessionsRunIdEndPostErrors[keyof EndTextChatSessionApiV1WorkflowWorkflowIdTextChatSessionsRunIdEndPostErrors];
+
+export type EndTextChatSessionApiV1WorkflowWorkflowIdTextChatSessionsRunIdEndPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: WorkflowRunTextSessionResponse;
+};
+
+export type EndTextChatSessionApiV1WorkflowWorkflowIdTextChatSessionsRunIdEndPostResponse = EndTextChatSessionApiV1WorkflowWorkflowIdTextChatSessionsRunIdEndPostResponses[keyof EndTextChatSessionApiV1WorkflowWorkflowIdTextChatSessionsRunIdEndPostResponses];
+
 export type RewindTextChatSessionApiV1WorkflowWorkflowIdTextChatSessionsRunIdRewindPostData = {
     body: RewindTextChatSessionRequest;
     headers?: {
@@ -6808,6 +10055,84 @@ export type UpdateUserConfigurationsApiV1UserConfigurationsUserPutResponses = {
 };
 
 export type UpdateUserConfigurationsApiV1UserConfigurationsUserPutResponse = UpdateUserConfigurationsApiV1UserConfigurationsUserPutResponses[keyof UpdateUserConfigurationsApiV1UserConfigurationsUserPutResponses];
+
+export type GetUserOnboardingStateApiV1UserOnboardingStateGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/user/onboarding-state';
+};
+
+export type GetUserOnboardingStateApiV1UserOnboardingStateGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetUserOnboardingStateApiV1UserOnboardingStateGetError = GetUserOnboardingStateApiV1UserOnboardingStateGetErrors[keyof GetUserOnboardingStateApiV1UserOnboardingStateGetErrors];
+
+export type GetUserOnboardingStateApiV1UserOnboardingStateGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: OnboardingState;
+};
+
+export type GetUserOnboardingStateApiV1UserOnboardingStateGetResponse = GetUserOnboardingStateApiV1UserOnboardingStateGetResponses[keyof GetUserOnboardingStateApiV1UserOnboardingStateGetResponses];
+
+export type UpdateUserOnboardingStateApiV1UserOnboardingStatePutData = {
+    body: OnboardingStateUpdate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/user/onboarding-state';
+};
+
+export type UpdateUserOnboardingStateApiV1UserOnboardingStatePutErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateUserOnboardingStateApiV1UserOnboardingStatePutError = UpdateUserOnboardingStateApiV1UserOnboardingStatePutErrors[keyof UpdateUserOnboardingStateApiV1UserOnboardingStatePutErrors];
+
+export type UpdateUserOnboardingStateApiV1UserOnboardingStatePutResponses = {
+    /**
+     * Successful Response
+     */
+    200: OnboardingState;
+};
+
+export type UpdateUserOnboardingStateApiV1UserOnboardingStatePutResponse = UpdateUserOnboardingStateApiV1UserOnboardingStatePutResponses[keyof UpdateUserOnboardingStateApiV1UserOnboardingStatePutResponses];
 
 export type ValidateUserConfigurationsApiV1UserConfigurationsUserValidateGetData = {
     body?: never;
@@ -7061,6 +10386,18 @@ export type GetVoicesApiV1UserConfigurationsVoicesProviderGetData = {
          * Language
          */
         language?: string | null;
+        /**
+         * Q
+         */
+        q?: string | null;
+        /**
+         * Gender
+         */
+        gender?: string | null;
+        /**
+         * Accent
+         */
+        accent?: string | null;
     };
     url: '/api/v1/user/configurations/voices/{provider}';
 };
@@ -7362,10 +10699,14 @@ export type GetCampaignRunsApiV1CampaignCampaignIdRunsGetData = {
     query?: {
         /**
          * Page
+         *
+         * Page number (starts from 1)
          */
         page?: number;
         /**
          * Limit
+         *
+         * Number of items per page
          */
         limit?: number;
         /**
@@ -8128,6 +11469,50 @@ export type RefreshMcpToolsApiV1ToolsToolUuidMcpRefreshPostResponses = {
 
 export type RefreshMcpToolsApiV1ToolsToolUuidMcpRefreshPostResponse = RefreshMcpToolsApiV1ToolsToolUuidMcpRefreshPostResponses[keyof RefreshMcpToolsApiV1ToolsToolUuidMcpRefreshPostResponses];
 
+export type TestToolApiV1ToolsToolUuidTestPostData = {
+    body: ToolTestRequest;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Tool Uuid
+         */
+        tool_uuid: string;
+    };
+    query?: never;
+    url: '/api/v1/tools/{tool_uuid}/test';
+};
+
+export type TestToolApiV1ToolsToolUuidTestPostErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TestToolApiV1ToolsToolUuidTestPostError = TestToolApiV1ToolsToolUuidTestPostErrors[keyof TestToolApiV1ToolsToolUuidTestPostErrors];
+
+export type TestToolApiV1ToolsToolUuidTestPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ToolTestResponse;
+};
+
+export type TestToolApiV1ToolsToolUuidTestPostResponse = TestToolApiV1ToolsToolUuidTestPostResponses[keyof TestToolApiV1ToolsToolUuidTestPostResponses];
+
 export type UnarchiveToolApiV1ToolsToolUuidUnarchivePostData = {
     body?: never;
     headers?: {
@@ -8171,6 +11556,45 @@ export type UnarchiveToolApiV1ToolsToolUuidUnarchivePostResponses = {
 };
 
 export type UnarchiveToolApiV1ToolsToolUuidUnarchivePostResponse = UnarchiveToolApiV1ToolsToolUuidUnarchivePostResponses[keyof UnarchiveToolApiV1ToolsToolUuidUnarchivePostResponses];
+
+export type GetCurrentOrganizationContextApiV1OrganizationsContextGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/organizations/context';
+};
+
+export type GetCurrentOrganizationContextApiV1OrganizationsContextGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetCurrentOrganizationContextApiV1OrganizationsContextGetError = GetCurrentOrganizationContextApiV1OrganizationsContextGetErrors[keyof GetCurrentOrganizationContextApiV1OrganizationsContextGetErrors];
+
+export type GetCurrentOrganizationContextApiV1OrganizationsContextGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: OrganizationContextResponse;
+};
+
+export type GetCurrentOrganizationContextApiV1OrganizationsContextGetResponse = GetCurrentOrganizationContextApiV1OrganizationsContextGetResponses[keyof GetCurrentOrganizationContextApiV1OrganizationsContextGetResponses];
 
 export type GetTelephonyProvidersMetadataApiV1OrganizationsTelephonyProvidersMetadataGetData = {
     body?: never;
@@ -8249,6 +11673,358 @@ export type GetTelephonyConfigWarningsApiV1OrganizationsTelephonyConfigWarningsG
 };
 
 export type GetTelephonyConfigWarningsApiV1OrganizationsTelephonyConfigWarningsGetResponse = GetTelephonyConfigWarningsApiV1OrganizationsTelephonyConfigWarningsGetResponses[keyof GetTelephonyConfigWarningsApiV1OrganizationsTelephonyConfigWarningsGetResponses];
+
+export type GetModelConfigurationV2DefaultsApiV1OrganizationsModelConfigurationsV2DefaultsGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/organizations/model-configurations/v2/defaults';
+};
+
+export type GetModelConfigurationV2DefaultsApiV1OrganizationsModelConfigurationsV2DefaultsGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetModelConfigurationV2DefaultsApiV1OrganizationsModelConfigurationsV2DefaultsGetError = GetModelConfigurationV2DefaultsApiV1OrganizationsModelConfigurationsV2DefaultsGetErrors[keyof GetModelConfigurationV2DefaultsApiV1OrganizationsModelConfigurationsV2DefaultsGetErrors];
+
+export type GetModelConfigurationV2DefaultsApiV1OrganizationsModelConfigurationsV2DefaultsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type GetModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2GetData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/organizations/model-configurations/v2';
+};
+
+export type GetModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2GetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2GetError = GetModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2GetErrors[keyof GetModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2GetErrors];
+
+export type GetModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2GetResponses = {
+    /**
+     * Successful Response
+     */
+    200: OrganizationAiModelConfigurationResponse;
+};
+
+export type GetModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2GetResponse = GetModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2GetResponses[keyof GetModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2GetResponses];
+
+export type SaveModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2PutData = {
+    body: OrganizationAiModelConfigurationV2;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/organizations/model-configurations/v2';
+};
+
+export type SaveModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2PutErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SaveModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2PutError = SaveModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2PutErrors[keyof SaveModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2PutErrors];
+
+export type SaveModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2PutResponses = {
+    /**
+     * Successful Response
+     */
+    200: OrganizationAiModelConfigurationResponse;
+};
+
+export type SaveModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2PutResponse = SaveModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2PutResponses[keyof SaveModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2PutResponses];
+
+export type GetModelConfigurationPricingApiV1OrganizationsModelConfigurationsV2PricingGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/organizations/model-configurations/v2/pricing';
+};
+
+export type GetModelConfigurationPricingApiV1OrganizationsModelConfigurationsV2PricingGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetModelConfigurationPricingApiV1OrganizationsModelConfigurationsV2PricingGetError = GetModelConfigurationPricingApiV1OrganizationsModelConfigurationsV2PricingGetErrors[keyof GetModelConfigurationPricingApiV1OrganizationsModelConfigurationsV2PricingGetErrors];
+
+export type GetModelConfigurationPricingApiV1OrganizationsModelConfigurationsV2PricingGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ModelConfigurationPricingResponse;
+};
+
+export type GetModelConfigurationPricingApiV1OrganizationsModelConfigurationsV2PricingGetResponse = GetModelConfigurationPricingApiV1OrganizationsModelConfigurationsV2PricingGetResponses[keyof GetModelConfigurationPricingApiV1OrganizationsModelConfigurationsV2PricingGetResponses];
+
+export type PreviewModelConfigurationV2MigrationApiV1OrganizationsModelConfigurationsV2MigrationPreviewGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/organizations/model-configurations/v2/migration-preview';
+};
+
+export type PreviewModelConfigurationV2MigrationApiV1OrganizationsModelConfigurationsV2MigrationPreviewGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PreviewModelConfigurationV2MigrationApiV1OrganizationsModelConfigurationsV2MigrationPreviewGetError = PreviewModelConfigurationV2MigrationApiV1OrganizationsModelConfigurationsV2MigrationPreviewGetErrors[keyof PreviewModelConfigurationV2MigrationApiV1OrganizationsModelConfigurationsV2MigrationPreviewGetErrors];
+
+export type PreviewModelConfigurationV2MigrationApiV1OrganizationsModelConfigurationsV2MigrationPreviewGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type MigrateModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2MigratePostData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Force
+         */
+        force?: boolean;
+    };
+    url: '/api/v1/organizations/model-configurations/v2/migrate';
+};
+
+export type MigrateModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2MigratePostErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type MigrateModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2MigratePostError = MigrateModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2MigratePostErrors[keyof MigrateModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2MigratePostErrors];
+
+export type MigrateModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2MigratePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: OrganizationAiModelConfigurationResponse;
+};
+
+export type MigrateModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2MigratePostResponse = MigrateModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2MigratePostResponses[keyof MigrateModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2MigratePostResponses];
+
+export type GetDispositionCodesApiV1OrganizationsDispositionCodesGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/organizations/disposition-codes';
+};
+
+export type GetDispositionCodesApiV1OrganizationsDispositionCodesGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetDispositionCodesApiV1OrganizationsDispositionCodesGetError = GetDispositionCodesApiV1OrganizationsDispositionCodesGetErrors[keyof GetDispositionCodesApiV1OrganizationsDispositionCodesGetErrors];
+
+export type GetDispositionCodesApiV1OrganizationsDispositionCodesGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: DispositionCodesResponse;
+};
+
+export type GetDispositionCodesApiV1OrganizationsDispositionCodesGetResponse = GetDispositionCodesApiV1OrganizationsDispositionCodesGetResponses[keyof GetDispositionCodesApiV1OrganizationsDispositionCodesGetResponses];
+
+export type GetPreferencesApiV1OrganizationsPreferencesGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/organizations/preferences';
+};
+
+export type GetPreferencesApiV1OrganizationsPreferencesGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetPreferencesApiV1OrganizationsPreferencesGetError = GetPreferencesApiV1OrganizationsPreferencesGetErrors[keyof GetPreferencesApiV1OrganizationsPreferencesGetErrors];
+
+export type GetPreferencesApiV1OrganizationsPreferencesGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: OrganizationPreferences;
+};
+
+export type GetPreferencesApiV1OrganizationsPreferencesGetResponse = GetPreferencesApiV1OrganizationsPreferencesGetResponses[keyof GetPreferencesApiV1OrganizationsPreferencesGetResponses];
+
+export type SavePreferencesApiV1OrganizationsPreferencesPutData = {
+    body: OrganizationPreferences;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/organizations/preferences';
+};
+
+export type SavePreferencesApiV1OrganizationsPreferencesPutErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SavePreferencesApiV1OrganizationsPreferencesPutError = SavePreferencesApiV1OrganizationsPreferencesPutErrors[keyof SavePreferencesApiV1OrganizationsPreferencesPutErrors];
+
+export type SavePreferencesApiV1OrganizationsPreferencesPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: OrganizationPreferences;
+};
+
+export type SavePreferencesApiV1OrganizationsPreferencesPutResponse = SavePreferencesApiV1OrganizationsPreferencesPutResponses[keyof SavePreferencesApiV1OrganizationsPreferencesPutResponses];
 
 export type ListTelephonyConfigurationsApiV1OrganizationsTelephonyConfigsGetData = {
     body?: never;
@@ -8501,6 +12277,232 @@ export type SetDefaultOutboundApiV1OrganizationsTelephonyConfigsConfigIdSetDefau
 };
 
 export type SetDefaultOutboundApiV1OrganizationsTelephonyConfigsConfigIdSetDefaultOutboundPostResponse = SetDefaultOutboundApiV1OrganizationsTelephonyConfigsConfigIdSetDefaultOutboundPostResponses[keyof SetDefaultOutboundApiV1OrganizationsTelephonyConfigsConfigIdSetDefaultOutboundPostResponses];
+
+export type ReactivateTelephonyConfigurationApiV1OrganizationsTelephonyConfigsConfigIdReactivatePostData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Config Id
+         */
+        config_id: number;
+    };
+    query?: never;
+    url: '/api/v1/organizations/telephony-configs/{config_id}/reactivate';
+};
+
+export type ReactivateTelephonyConfigurationApiV1OrganizationsTelephonyConfigsConfigIdReactivatePostErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReactivateTelephonyConfigurationApiV1OrganizationsTelephonyConfigsConfigIdReactivatePostError = ReactivateTelephonyConfigurationApiV1OrganizationsTelephonyConfigsConfigIdReactivatePostErrors[keyof ReactivateTelephonyConfigurationApiV1OrganizationsTelephonyConfigsConfigIdReactivatePostErrors];
+
+export type ReactivateTelephonyConfigurationApiV1OrganizationsTelephonyConfigsConfigIdReactivatePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: TelephonyConfigurationDetail;
+};
+
+export type ReactivateTelephonyConfigurationApiV1OrganizationsTelephonyConfigsConfigIdReactivatePostResponse = ReactivateTelephonyConfigurationApiV1OrganizationsTelephonyConfigsConfigIdReactivatePostResponses[keyof ReactivateTelephonyConfigurationApiV1OrganizationsTelephonyConfigsConfigIdReactivatePostResponses];
+
+export type ListTelephonyTrunksApiV1OrganizationsTelephonyConfigsConfigIdTrunksGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Config Id
+         */
+        config_id: number;
+    };
+    query?: never;
+    url: '/api/v1/organizations/telephony-configs/{config_id}/trunks';
+};
+
+export type ListTelephonyTrunksApiV1OrganizationsTelephonyConfigsConfigIdTrunksGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListTelephonyTrunksApiV1OrganizationsTelephonyConfigsConfigIdTrunksGetError = ListTelephonyTrunksApiV1OrganizationsTelephonyConfigsConfigIdTrunksGetErrors[keyof ListTelephonyTrunksApiV1OrganizationsTelephonyConfigsConfigIdTrunksGetErrors];
+
+export type ListTelephonyTrunksApiV1OrganizationsTelephonyConfigsConfigIdTrunksGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: TrunkListResponse;
+};
+
+export type ListTelephonyTrunksApiV1OrganizationsTelephonyConfigsConfigIdTrunksGetResponse = ListTelephonyTrunksApiV1OrganizationsTelephonyConfigsConfigIdTrunksGetResponses[keyof ListTelephonyTrunksApiV1OrganizationsTelephonyConfigsConfigIdTrunksGetResponses];
+
+export type CreateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksPostData = {
+    body: TrunkCreateRequest;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Config Id
+         */
+        config_id: number;
+    };
+    query?: never;
+    url: '/api/v1/organizations/telephony-configs/{config_id}/trunks';
+};
+
+export type CreateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksPostErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksPostError = CreateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksPostErrors[keyof CreateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksPostErrors];
+
+export type CreateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: TrunkResponse;
+};
+
+export type CreateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksPostResponse = CreateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksPostResponses[keyof CreateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksPostResponses];
+
+export type DeleteTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdDeleteData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Config Id
+         */
+        config_id: number;
+        /**
+         * Trunk Id
+         */
+        trunk_id: number;
+    };
+    query?: never;
+    url: '/api/v1/organizations/telephony-configs/{config_id}/trunks/{trunk_id}';
+};
+
+export type DeleteTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdDeleteErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdDeleteError = DeleteTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdDeleteErrors[keyof DeleteTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdDeleteErrors];
+
+export type DeleteTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type UpdateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdPutData = {
+    body: TrunkUpdateRequest;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Config Id
+         */
+        config_id: number;
+        /**
+         * Trunk Id
+         */
+        trunk_id: number;
+    };
+    query?: never;
+    url: '/api/v1/organizations/telephony-configs/{config_id}/trunks/{trunk_id}';
+};
+
+export type UpdateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdPutErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdPutError = UpdateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdPutErrors[keyof UpdateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdPutErrors];
+
+export type UpdateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: TrunkResponse;
+};
+
+export type UpdateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdPutResponse = UpdateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdPutResponses[keyof UpdateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdPutResponses];
 
 export type ListPhoneNumbersApiV1OrganizationsTelephonyConfigsConfigIdPhoneNumbersGetData = {
     body?: never;
@@ -8779,99 +12781,6 @@ export type SetDefaultCallerIdApiV1OrganizationsTelephonyConfigsConfigIdPhoneNum
 };
 
 export type SetDefaultCallerIdApiV1OrganizationsTelephonyConfigsConfigIdPhoneNumbersPhoneNumberIdSetDefaultCallerPostResponse = SetDefaultCallerIdApiV1OrganizationsTelephonyConfigsConfigIdPhoneNumbersPhoneNumberIdSetDefaultCallerPostResponses[keyof SetDefaultCallerIdApiV1OrganizationsTelephonyConfigsConfigIdPhoneNumbersPhoneNumberIdSetDefaultCallerPostResponses];
-
-export type GetTelephonyConfigurationApiV1OrganizationsTelephonyConfigGetData = {
-    body?: never;
-    headers?: {
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Api-Key
-         */
-        'X-API-Key'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/organizations/telephony-config';
-};
-
-export type GetTelephonyConfigurationApiV1OrganizationsTelephonyConfigGetErrors = {
-    /**
-     * Not found
-     */
-    404: unknown;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetTelephonyConfigurationApiV1OrganizationsTelephonyConfigGetError = GetTelephonyConfigurationApiV1OrganizationsTelephonyConfigGetErrors[keyof GetTelephonyConfigurationApiV1OrganizationsTelephonyConfigGetErrors];
-
-export type GetTelephonyConfigurationApiV1OrganizationsTelephonyConfigGetResponses = {
-    /**
-     * Successful Response
-     */
-    200: TelephonyConfigurationResponse;
-};
-
-export type GetTelephonyConfigurationApiV1OrganizationsTelephonyConfigGetResponse = GetTelephonyConfigurationApiV1OrganizationsTelephonyConfigGetResponses[keyof GetTelephonyConfigurationApiV1OrganizationsTelephonyConfigGetResponses];
-
-export type SaveTelephonyConfigurationApiV1OrganizationsTelephonyConfigPostData = {
-    /**
-     * Request
-     */
-    body: ({
-        provider: 'ari';
-    } & AriConfigurationRequest) | ({
-        provider: 'cloudonix';
-    } & CloudonixConfigurationRequest) | ({
-        provider: 'plivo';
-    } & PlivoConfigurationRequest) | ({
-        provider: 'telnyx';
-    } & TelnyxConfigurationRequest) | ({
-        provider: 'twilio';
-    } & TwilioConfigurationRequest) | ({
-        provider: 'vobiz';
-    } & VobizConfigurationRequest) | ({
-        provider: 'vonage';
-    } & VonageConfigurationRequest);
-    headers?: {
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Api-Key
-         */
-        'X-API-Key'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/organizations/telephony-config';
-};
-
-export type SaveTelephonyConfigurationApiV1OrganizationsTelephonyConfigPostErrors = {
-    /**
-     * Not found
-     */
-    404: unknown;
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type SaveTelephonyConfigurationApiV1OrganizationsTelephonyConfigPostError = SaveTelephonyConfigurationApiV1OrganizationsTelephonyConfigPostErrors[keyof SaveTelephonyConfigurationApiV1OrganizationsTelephonyConfigPostErrors];
-
-export type SaveTelephonyConfigurationApiV1OrganizationsTelephonyConfigPostResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
 
 export type DeleteLangfuseCredentialsApiV1OrganizationsLangfuseCredentialsDeleteData = {
     body?: never;
@@ -9378,7 +13287,55 @@ export type GetCurrentPeriodUsageApiV1OrganizationsUsageCurrentPeriodGetResponse
 
 export type GetCurrentPeriodUsageApiV1OrganizationsUsageCurrentPeriodGetResponse = GetCurrentPeriodUsageApiV1OrganizationsUsageCurrentPeriodGetResponses[keyof GetCurrentPeriodUsageApiV1OrganizationsUsageCurrentPeriodGetResponses];
 
-export type GetMpsCreditsApiV1OrganizationsUsageMpsCreditsGetData = {
+export type GetBillingCreditsApiV1OrganizationsBillingCreditsGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Page
+         */
+        page?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/organizations/billing/credits';
+};
+
+export type GetBillingCreditsApiV1OrganizationsBillingCreditsGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetBillingCreditsApiV1OrganizationsBillingCreditsGetError = GetBillingCreditsApiV1OrganizationsBillingCreditsGetErrors[keyof GetBillingCreditsApiV1OrganizationsBillingCreditsGetErrors];
+
+export type GetBillingCreditsApiV1OrganizationsBillingCreditsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: MpsBillingCreditsResponse;
+};
+
+export type GetBillingCreditsApiV1OrganizationsBillingCreditsGetResponse = GetBillingCreditsApiV1OrganizationsBillingCreditsGetResponses[keyof GetBillingCreditsApiV1OrganizationsBillingCreditsGetResponses];
+
+export type CreateMpsCreditPurchaseUrlApiV1OrganizationsUsageMpsCreditsPurchaseUrlPostData = {
     body?: never;
     headers?: {
         /**
@@ -9392,10 +13349,10 @@ export type GetMpsCreditsApiV1OrganizationsUsageMpsCreditsGetData = {
     };
     path?: never;
     query?: never;
-    url: '/api/v1/organizations/usage/mps-credits';
+    url: '/api/v1/organizations/usage/mps-credits/purchase-url';
 };
 
-export type GetMpsCreditsApiV1OrganizationsUsageMpsCreditsGetErrors = {
+export type CreateMpsCreditPurchaseUrlApiV1OrganizationsUsageMpsCreditsPurchaseUrlPostErrors = {
     /**
      * Not found
      */
@@ -9406,16 +13363,16 @@ export type GetMpsCreditsApiV1OrganizationsUsageMpsCreditsGetErrors = {
     422: HttpValidationError;
 };
 
-export type GetMpsCreditsApiV1OrganizationsUsageMpsCreditsGetError = GetMpsCreditsApiV1OrganizationsUsageMpsCreditsGetErrors[keyof GetMpsCreditsApiV1OrganizationsUsageMpsCreditsGetErrors];
+export type CreateMpsCreditPurchaseUrlApiV1OrganizationsUsageMpsCreditsPurchaseUrlPostError = CreateMpsCreditPurchaseUrlApiV1OrganizationsUsageMpsCreditsPurchaseUrlPostErrors[keyof CreateMpsCreditPurchaseUrlApiV1OrganizationsUsageMpsCreditsPurchaseUrlPostErrors];
 
-export type GetMpsCreditsApiV1OrganizationsUsageMpsCreditsGetResponses = {
+export type CreateMpsCreditPurchaseUrlApiV1OrganizationsUsageMpsCreditsPurchaseUrlPostResponses = {
     /**
      * Successful Response
      */
-    200: MpsCreditsResponse;
+    200: MpsCreditPurchaseUrlResponse;
 };
 
-export type GetMpsCreditsApiV1OrganizationsUsageMpsCreditsGetResponse = GetMpsCreditsApiV1OrganizationsUsageMpsCreditsGetResponses[keyof GetMpsCreditsApiV1OrganizationsUsageMpsCreditsGetResponses];
+export type CreateMpsCreditPurchaseUrlApiV1OrganizationsUsageMpsCreditsPurchaseUrlPostResponse = CreateMpsCreditPurchaseUrlApiV1OrganizationsUsageMpsCreditsPurchaseUrlPostResponses[keyof CreateMpsCreditPurchaseUrlApiV1OrganizationsUsageMpsCreditsPurchaseUrlPostResponses];
 
 export type GetUsageHistoryApiV1OrganizationsUsageRunsGetData = {
     body?: never;
@@ -9471,6 +13428,8 @@ export type GetUsageHistoryApiV1OrganizationsUsageRunsGetData = {
          * | `calledNumber`  | `text`        | `{ "value": "9911848" }`                     | substring match on `initial_context.called_number`   |
          * | `dispositionCode` | `multiSelect` | `{ "codes": ["XFER", "DNC"] }`             | any of the codes in `gathered_context.mapped_call_disposition` |
          * | `duration`      | `numberRange` | `{ "min": 60, "max": 300 }`                  | call duration (seconds), inclusive bounds            |
+         * | `callDirection` | `radio`       | `{ "status": "inbound" }`                    | `inbound` or `outbound`; any other value matches all |
+         * | `callChannel`   | `radio`       | `{ "status": "telephony" }`                  | `telephony`, `web`, or `chat` — the group of run modes for that channel |
          *
          * Unknown attributes and unsupported `type` values are silently ignored.
          *
@@ -9478,6 +13437,18 @@ export type GetUsageHistoryApiV1OrganizationsUsageRunsGetData = {
          *
          */
         filters?: string | null;
+        /**
+         * Sort By
+         *
+         * Field to sort by ('duration'). Defaults to `created_at`.
+         */
+        sort_by?: string | null;
+        /**
+         * Sort Order
+         *
+         * Sort order ('asc' or 'desc').
+         */
+        sort_order?: string;
     };
     url: '/api/v1/organizations/usage/runs';
 };
@@ -9550,6 +13521,8 @@ export type DownloadUsageRunsReportApiV1OrganizationsUsageRunsReportGetData = {
          * | `calledNumber`  | `text`        | `{ "value": "9911848" }`                     | substring match on `initial_context.called_number`   |
          * | `dispositionCode` | `multiSelect` | `{ "codes": ["XFER", "DNC"] }`             | any of the codes in `gathered_context.mapped_call_disposition` |
          * | `duration`      | `numberRange` | `{ "min": 60, "max": 300 }`                  | call duration (seconds), inclusive bounds            |
+         * | `callDirection` | `radio`       | `{ "status": "inbound" }`                    | `inbound` or `outbound`; any other value matches all |
+         * | `callChannel`   | `radio`       | `{ "status": "telephony" }`                  | `telephony`, `web`, or `chat` — the group of run modes for that channel |
          *
          * Unknown attributes and unsupported `type` values are silently ignored.
          *
@@ -9909,7 +13882,7 @@ export type GetEmbedConfigApiV1PublicEmbedConfigTokenGetResponses = {
 
 export type GetEmbedConfigApiV1PublicEmbedConfigTokenGetResponse = GetEmbedConfigApiV1PublicEmbedConfigTokenGetResponses[keyof GetEmbedConfigApiV1PublicEmbedConfigTokenGetResponses];
 
-export type OptionsConfigApiV1PublicEmbedConfigTokenOptionsData = {
+export type OptionsEmbedConfigApiV1PublicEmbedConfigTokenOptionsData = {
     body?: never;
     path: {
         /**
@@ -9921,7 +13894,7 @@ export type OptionsConfigApiV1PublicEmbedConfigTokenOptionsData = {
     url: '/api/v1/public/embed/config/{token}';
 };
 
-export type OptionsConfigApiV1PublicEmbedConfigTokenOptionsErrors = {
+export type OptionsEmbedConfigApiV1PublicEmbedConfigTokenOptionsErrors = {
     /**
      * Not found
      */
@@ -9932,9 +13905,9 @@ export type OptionsConfigApiV1PublicEmbedConfigTokenOptionsErrors = {
     422: HttpValidationError;
 };
 
-export type OptionsConfigApiV1PublicEmbedConfigTokenOptionsError = OptionsConfigApiV1PublicEmbedConfigTokenOptionsErrors[keyof OptionsConfigApiV1PublicEmbedConfigTokenOptionsErrors];
+export type OptionsEmbedConfigApiV1PublicEmbedConfigTokenOptionsError = OptionsEmbedConfigApiV1PublicEmbedConfigTokenOptionsErrors[keyof OptionsEmbedConfigApiV1PublicEmbedConfigTokenOptionsErrors];
 
-export type OptionsConfigApiV1PublicEmbedConfigTokenOptionsResponses = {
+export type OptionsEmbedConfigApiV1PublicEmbedConfigTokenOptionsResponses = {
     /**
      * Successful Response
      */
@@ -10006,6 +13979,204 @@ export type OptionsTurnCredentialsApiV1PublicEmbedTurnCredentialsSessionTokenOpt
      */
     200: unknown;
 };
+
+export type GetPublicChatSessionApiV1PublicEmbedChatSessionTokenGetData = {
+    body?: never;
+    path: {
+        /**
+         * Session Token
+         */
+        session_token: string;
+    };
+    query?: never;
+    url: '/api/v1/public/embed/chat/{session_token}';
+};
+
+export type GetPublicChatSessionApiV1PublicEmbedChatSessionTokenGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetPublicChatSessionApiV1PublicEmbedChatSessionTokenGetError = GetPublicChatSessionApiV1PublicEmbedChatSessionTokenGetErrors[keyof GetPublicChatSessionApiV1PublicEmbedChatSessionTokenGetErrors];
+
+export type GetPublicChatSessionApiV1PublicEmbedChatSessionTokenGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicEmbedChatSessionResponse;
+};
+
+export type GetPublicChatSessionApiV1PublicEmbedChatSessionTokenGetResponse = GetPublicChatSessionApiV1PublicEmbedChatSessionTokenGetResponses[keyof GetPublicChatSessionApiV1PublicEmbedChatSessionTokenGetResponses];
+
+export type OptionsPublicChatSessionApiV1PublicEmbedChatSessionTokenOptionsData = {
+    body?: never;
+    path: {
+        /**
+         * Session Token
+         */
+        session_token: string;
+    };
+    query?: never;
+    url: '/api/v1/public/embed/chat/{session_token}';
+};
+
+export type OptionsPublicChatSessionApiV1PublicEmbedChatSessionTokenOptionsErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type OptionsPublicChatSessionApiV1PublicEmbedChatSessionTokenOptionsError = OptionsPublicChatSessionApiV1PublicEmbedChatSessionTokenOptionsErrors[keyof OptionsPublicChatSessionApiV1PublicEmbedChatSessionTokenOptionsErrors];
+
+export type OptionsPublicChatSessionApiV1PublicEmbedChatSessionTokenOptionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type OptionsPublicChatEndApiV1PublicEmbedChatSessionTokenEndOptionsData = {
+    body?: never;
+    path: {
+        /**
+         * Session Token
+         */
+        session_token: string;
+    };
+    query?: never;
+    url: '/api/v1/public/embed/chat/{session_token}/end';
+};
+
+export type OptionsPublicChatEndApiV1PublicEmbedChatSessionTokenEndOptionsErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type OptionsPublicChatEndApiV1PublicEmbedChatSessionTokenEndOptionsError = OptionsPublicChatEndApiV1PublicEmbedChatSessionTokenEndOptionsErrors[keyof OptionsPublicChatEndApiV1PublicEmbedChatSessionTokenEndOptionsErrors];
+
+export type OptionsPublicChatEndApiV1PublicEmbedChatSessionTokenEndOptionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type EndPublicChatSessionApiV1PublicEmbedChatSessionTokenEndPostData = {
+    body: PublicEmbedChatEndRequest;
+    path: {
+        /**
+         * Session Token
+         */
+        session_token: string;
+    };
+    query?: never;
+    url: '/api/v1/public/embed/chat/{session_token}/end';
+};
+
+export type EndPublicChatSessionApiV1PublicEmbedChatSessionTokenEndPostErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type EndPublicChatSessionApiV1PublicEmbedChatSessionTokenEndPostError = EndPublicChatSessionApiV1PublicEmbedChatSessionTokenEndPostErrors[keyof EndPublicChatSessionApiV1PublicEmbedChatSessionTokenEndPostErrors];
+
+export type EndPublicChatSessionApiV1PublicEmbedChatSessionTokenEndPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicEmbedChatSessionResponse;
+};
+
+export type EndPublicChatSessionApiV1PublicEmbedChatSessionTokenEndPostResponse = EndPublicChatSessionApiV1PublicEmbedChatSessionTokenEndPostResponses[keyof EndPublicChatSessionApiV1PublicEmbedChatSessionTokenEndPostResponses];
+
+export type OptionsPublicChatMessagesApiV1PublicEmbedChatSessionTokenMessagesOptionsData = {
+    body?: never;
+    path: {
+        /**
+         * Session Token
+         */
+        session_token: string;
+    };
+    query?: never;
+    url: '/api/v1/public/embed/chat/{session_token}/messages';
+};
+
+export type OptionsPublicChatMessagesApiV1PublicEmbedChatSessionTokenMessagesOptionsErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type OptionsPublicChatMessagesApiV1PublicEmbedChatSessionTokenMessagesOptionsError = OptionsPublicChatMessagesApiV1PublicEmbedChatSessionTokenMessagesOptionsErrors[keyof OptionsPublicChatMessagesApiV1PublicEmbedChatSessionTokenMessagesOptionsErrors];
+
+export type OptionsPublicChatMessagesApiV1PublicEmbedChatSessionTokenMessagesOptionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type PostPublicChatMessageApiV1PublicEmbedChatSessionTokenMessagesPostData = {
+    body: PublicEmbedChatMessageRequest;
+    path: {
+        /**
+         * Session Token
+         */
+        session_token: string;
+    };
+    query?: never;
+    url: '/api/v1/public/embed/chat/{session_token}/messages';
+};
+
+export type PostPublicChatMessageApiV1PublicEmbedChatSessionTokenMessagesPostErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PostPublicChatMessageApiV1PublicEmbedChatSessionTokenMessagesPostError = PostPublicChatMessageApiV1PublicEmbedChatSessionTokenMessagesPostErrors[keyof PostPublicChatMessageApiV1PublicEmbedChatSessionTokenMessagesPostErrors];
+
+export type PostPublicChatMessageApiV1PublicEmbedChatSessionTokenMessagesPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicEmbedChatSessionResponse;
+};
+
+export type PostPublicChatMessageApiV1PublicEmbedChatSessionTokenMessagesPostResponse = PostPublicChatMessageApiV1PublicEmbedChatSessionTokenMessagesPostResponses[keyof PostPublicChatMessageApiV1PublicEmbedChatSessionTokenMessagesPostResponses];
 
 export type InitiateCallApiV1PublicAgentUuidPostData = {
     body: TriggerCallRequest;
@@ -10177,7 +14348,7 @@ export type DownloadWorkflowArtifactApiV1PublicDownloadWorkflowTokenArtifactType
         /**
          * Artifact Type
          */
-        artifact_type: 'recording' | 'transcript';
+        artifact_type: string;
     };
     query?: {
         /**
@@ -11244,3 +15415,78 @@ export type HealthApiV1HealthGetResponses = {
 };
 
 export type HealthApiV1HealthGetResponse = HealthApiV1HealthGetResponses[keyof HealthApiV1HealthGetResponses];
+
+export type ActiveCallsApiV1HealthActiveCallsGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Dograh-Devops-Secret
+         */
+        'X-Dograh-Devops-Secret'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/health/active-calls';
+};
+
+export type ActiveCallsApiV1HealthActiveCallsGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ActiveCallsApiV1HealthActiveCallsGetError = ActiveCallsApiV1HealthActiveCallsGetErrors[keyof ActiveCallsApiV1HealthActiveCallsGetErrors];
+
+export type ActiveCallsApiV1HealthActiveCallsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ActiveCallsResponse;
+};
+
+export type ActiveCallsApiV1HealthActiveCallsGetResponse = ActiveCallsApiV1HealthActiveCallsGetResponses[keyof ActiveCallsApiV1HealthActiveCallsGetResponses];
+
+export type AutoscaleMetricApiV1HealthAutoscaleMetricGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Dograh-Devops-Secret
+         */
+        'X-Dograh-Devops-Secret'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Buffer
+         */
+        buffer?: number;
+    };
+    url: '/api/v1/health/autoscale-metric';
+};
+
+export type AutoscaleMetricApiV1HealthAutoscaleMetricGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AutoscaleMetricApiV1HealthAutoscaleMetricGetError = AutoscaleMetricApiV1HealthAutoscaleMetricGetErrors[keyof AutoscaleMetricApiV1HealthAutoscaleMetricGetErrors];
+
+export type AutoscaleMetricApiV1HealthAutoscaleMetricGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: AutoscaleMetricResponse;
+};
+
+export type AutoscaleMetricApiV1HealthAutoscaleMetricGetResponse = AutoscaleMetricApiV1HealthAutoscaleMetricGetResponses[keyof AutoscaleMetricApiV1HealthAutoscaleMetricGetResponses];

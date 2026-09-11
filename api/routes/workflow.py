@@ -530,6 +530,7 @@ async def create_workflow(
         "workflow_configurations": mask_workflow_configurations(
             workflow.workflow_configurations
         ),
+        "workflow_uuid": workflow.workflow_uuid,
     }
 
 
@@ -630,6 +631,7 @@ async def create_workflow_from_template(
             "workflow_configurations": mask_workflow_configurations(
                 workflow.workflow_configurations
             ),
+            "workflow_uuid": workflow.workflow_uuid,
         }
 
     except HTTPException:
@@ -1368,6 +1370,7 @@ async def duplicate_workflow_endpoint(
             "workflow_configurations": mask_workflow_configurations(
                 workflow.workflow_configurations
             ),
+            "workflow_uuid": workflow.workflow_uuid,
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

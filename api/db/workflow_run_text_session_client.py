@@ -84,6 +84,36 @@ class WorkflowRunTextSessionClient(BaseDBClient):
             result = await session.execute(query)
             return result.scalars().first()
 
+    async def get_text_session_by_conversation_id(
+        self,
+        *,
+        workflow_uuid: str,
+        conversation_id: str,
+    ) -> WorkflowRunTextSessionModel | None:
+        """Return the latest Rendexia session for a workflow conversation."""
+        async with self.async_session() as session:
+            query = (
+                select(WorkflowRunTextSessionModel)
+                .options(
+                    joinedload(WorkflowRunTextSessionModel.workflow_run).joinedload(
+                        WorkflowRunModel.workflow
+                    )
+                )
+                .join(WorkflowRunTextSessionModel.workflow_run)
+                .join(WorkflowRunModel.workflow)
+                .where(WorkflowModel.workflow_uuid == workflow_uuid)
+                .where(
+                    WorkflowRunModel.annotations[
+                        "rendexia_conversation_id"
+                    ].as_string()
+                    == conversation_id
+                )
+                .order_by(WorkflowRunTextSessionModel.created_at.desc())
+                .limit(1)
+            )
+            result = await session.execute(query)
+            return result.scalars().first()
+
     async def get_inactive_workflow_run_text_sessions(
         self,
         *,

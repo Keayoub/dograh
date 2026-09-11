@@ -43,7 +43,7 @@ class OrganizationClient(BaseDBClient):
             return list(result.scalars().all())
 
     async def get_or_create_organization_by_provider_id(
-        self, org_provider_id: str, user_id: int
+        self, org_provider_id: str, user_id: int | None
     ) -> tuple[OrganizationModel, bool]:
         """Get an existing organization by provider_id or create a new one.
 
@@ -89,8 +89,10 @@ class OrganizationClient(BaseDBClient):
                     error_msg = f"Failed to create or fetch organization with provider_id {org_provider_id}"
                     raise ValueError(error_msg)
 
-                # Only create API key if we actually created the organization
-                if was_created:
+                # User-driven organization creation gets a default API key.
+                # Service provisioning has no owning user and must not create a
+                # key with a synthetic foreign-key reference.
+                if was_created and user_id is not None:
                     # Create a default API key for the new organization
                     _, key_hash, key_prefix = generate_api_key()
 

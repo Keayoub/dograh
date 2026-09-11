@@ -159,6 +159,7 @@ class OrganizationConfigurationKey(Enum):
     ORGANIZATION_BOOTSTRAP = (
         "ORGANIZATION_BOOTSTRAP"  # Single-winner lease for post-signup provisioning
     )
+    RENDEXIA_AGENT_CONFIG = "RENDEXIA_AGENT_CONFIG"
 
 
 class UserConfigurationKey(Enum):

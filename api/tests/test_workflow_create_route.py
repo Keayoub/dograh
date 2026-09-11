@@ -51,6 +51,49 @@ def test_create_workflow_rejects_invalid_trigger_path_before_db_write():
     assert mock_db.mock_calls == []
 
 
+def test_create_workflow_from_template_returns_workflow_uuid():
+    app = _make_test_app()
+    client = TestClient(app)
+    workflow = SimpleNamespace(
+        id=33,
+        name="Rendexia Assistant",
+        status="active",
+        created_at=datetime.now(UTC),
+        workflow_definition={"nodes": [], "edges": []},
+        current_definition_id=77,
+        template_context_variables={},
+        call_disposition_codes={},
+        workflow_configurations={},
+        workflow_uuid="workflow-uuid-123",
+    )
+
+    with (
+        patch("api.routes.workflow.db_client") as mock_db,
+        patch(
+            "api.routes.workflow.mps_service_key_client.call_workflow_api",
+            new=AsyncMock(
+                return_value={
+                    "name": workflow.name,
+                    "workflow_definition": workflow.workflow_definition,
+                }
+            ),
+        ),
+    ):
+        mock_db.create_workflow = AsyncMock(return_value=workflow)
+        response = client.post(
+            "/workflow/create/template",
+            json={
+                "call_type": "inbound",
+                "use_case": "booking",
+                "activity_description": "Book customer appointments",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == 33
+    assert response.json()["workflow_uuid"] == "workflow-uuid-123"
+
+
 def test_create_workflow_rejects_duplicate_api_triggers_before_db_write():
     app = _make_test_app()
     client = TestClient(app)
